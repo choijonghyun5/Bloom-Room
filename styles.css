@@ -748,20 +748,20 @@ button.topbar-cell:active{ opacity: 0.7; }
   z-index: 20;
   display:flex;
   justify-content: space-around;
-  margin: 0 14px max(14px, env(safe-area-inset-bottom));
-  padding: 12px 6px;
+  margin: 0 14px max(8px, env(safe-area-inset-bottom));
+  padding: 6px 4px;
   border-radius: 999px;
 }
 .dock-item{
-  display:flex; flex-direction:column; align-items:center; gap:3px;
+  display:flex; flex-direction:column; align-items:center; gap:1px;
   color: var(--glass-ink-faint);
-  font-size: 11px;
+  font-size: 9.5px;
   font-weight: 600;
-  padding: 6px 10px;
-  border-radius: 12px;
+  padding: 4px 8px;
+  border-radius: 10px;
   transition: background 0.2s ease, color 0.2s ease;
 }
-.dock-icon{ font-size: 18px; }
+.dock-icon{ font-size: 14px; }
 .dock-item.is-active{
   background: var(--glass-active-bg);
   color: var(--glass-active-ink);
