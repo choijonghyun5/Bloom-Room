@@ -46,55 +46,48 @@
 
 *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body{ height: 100%; }
-
-/* ===================== 기준 화면(디자인 캔버스) ===================== */
-/* 그린노트는 항상 "핸드폰 화면 비율"을 기준으로 그려집니다.
-   PC 등 넓은 화면에서 열어도 화면 비율(가로:세로)이 폰과 똑같이 유지되고,
-   남는 공간은 위/아래(또는 좌/우)에 여백으로만 남습니다.
-   → 조명/가습기/제습기/화분처럼 %로 배치된 요소들이 화면 비율에 따라
-     서로 다른 위치로 밀리던 문제가 사라집니다.
-   폰 기종을 더 정확히 맞추고 싶으면 아래 두 숫자만 실제 기기 값으로 바꾸면 됩니다. */
-:root{
-  --app-ratio-w: 393;
-  --app-ratio-h: 852;
-  /* PC처럼 넓은 화면에서 이 폭을 넘지 않도록 상한을 둡니다(원하면 숫자만 조정하세요). */
-  --app-max-w: 480px;
-}
-
 body{
   margin:0;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--cream);
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
   height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-body);
-  color: var(--ink);
-  /* 데스크톱에서 생기는 여백(레터박스) 색상 */
-  background: var(--wood-deep);
-  overscroll-behavior: none;
-  -webkit-user-select: none;
-  user-select: none;
+  overflow: hidden;
 }
 
 button{ font-family: inherit; border:none; background:none; cursor:pointer; }
 
 .app{
-  /* 가로를 기준으로 폭을 정하고(=옆이 잘리지 않고), 세로는 폰 비율에 맞춰 자동으로 계산됩니다.
-     PC처럼 넓은 화면에서는 --app-max-w 폭까지만 커지고, 남는 공간은 위/아래(또는 좌/우)
-     여백으로 남습니다. 세로가 화면보다 넘칠 정도로 창이 짧을 때만 예외적으로 줄어듭니다. */
-  width: min(100vw, var(--app-max-w));
-  aspect-ratio: var(--app-ratio-w) / var(--app-ratio-h);
-  max-height: 100dvh;
+  /*
+    배경 사진(day.png = 852 × 1846, 비율 약 0.4615)과 .app 박스의
+    가로세로 비율을 항상 똑같이 맞춰서, 사진이 레터박스 없이 .app을
+    정확히 꽉 채우도록 합니다. 그래야 %로 배치된 조명/가습기/화분 같은
+    UI가 화면 크기와 상관없이 항상 "사진 안"에 위치하게 됩니다.
+
+    아래 두 줄은 "뷰포트에 비율을 유지한 채 최대한 크게 맞추기"
+    공식입니다. width/height 각각 세 후보 중 가장 작은 값을 쓰는데,
+    세 후보가 모두 같은 비율(852/1846)에서 나온 값이라 항상 서로 짝이
+    맞습니다 (레터박스 없는 순수 CSS 리사이즈).
+  */
+  --img-ratio: 0.461538; /* 852 / 1846 */
+  width: min(100vw, calc(100dvh * var(--img-ratio)), 560px);
+  height: min(100dvh, calc(100vw / var(--img-ratio)), calc(560px / var(--img-ratio)));
   display: flex;
   flex-direction: column;
-  margin: auto;
+  flex-shrink: 0;
+  margin: 0 auto;
   position: relative;
-  overflow: hidden;
   background-image: url("assets/day.png");
-  background-size: 100% auto;
-  background-position: center bottom;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center top;
   background-color: var(--cream);
-  box-shadow: 0 12px 48px rgba(0,0,0,0.35);
 }
 
 /* ===================== 유리(글래스) 공통 스타일 ===================== */
@@ -344,7 +337,7 @@ button.topbar-cell:active{ opacity: 0.7; }
 
 /* 사진 속 실제 펜던트 조명 위치에 맞춰 배치 (앱 전체 기준 %, 세로는 사진 그대로 매핑됨) */
 .lamp{
-  position:absolute; left: 82%; top: 25%; z-index: 4;
+  position:absolute; left: 83%; top: 32%; z-index: 4;
   width: 100px; height: 140px;
   transform: translate(-50%, 0);
   border: none; background: none; padding: 0; margin: 0;
@@ -381,8 +374,8 @@ button.topbar-cell:active{ opacity: 0.7; }
   filter: var(--scene-filter, none) drop-shadow(0 3px 5px rgba(64,48,31,0.28));
 }
 
-.humidifier{ left: 23%; top: 40.2%; }
-.dehumidifier{ left: 28%; top: 40.3%; }
+.humidifier{ left: 43%; top: 44%; }
+.dehumidifier{ left: 55%; top: 44%; }
 
 .device-mist{
   position:absolute; top: -6px; left: 50%; transform: translateX(-50%);
@@ -1538,6 +1531,11 @@ button.topbar-cell:active{ opacity: 0.7; }
 .ach-icon{ font-size: 22px; }
 .ach-title{ font-family: var(--font-display); font-size: 13px; color: var(--wood-deep); }
 .ach-desc{ font-size: 10.5px; color: var(--ink-faint); line-height: 1.5; }
+
+/* 큰 화면 대응 */
+@media (min-width: 640px){
+  .app{ padding-top: 12px; }
+}
 
 /* 동작 최소화 옵션 존중 */
 @media (prefers-reduced-motion: reduce){

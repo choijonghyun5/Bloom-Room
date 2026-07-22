@@ -35,11 +35,18 @@ function getTimeProfile(hour) {
 /* ---- 날씨 한글 라벨 -> 사진 파일명에 쓰이는 영문 key ---- */
 const WEATHER_KEY_EN = { "맑음": "clear", "흐림": "gloomy", "비": "rain", "눈": "snow" };
 
+/* ---- 🧪 테스트용 고정 배경 스위치 ----
+   지금은 true 로 켜져 있어서, 시간/날씨가 뭐든 항상 assets/day.png(새로 넣은 사진) 하나만 보여줍니다.
+   원래대로 시간대별·날씨별 사진(day_clear_on.png 등)이 자동으로 바뀌게 하려면
+   아래 값을 false 로 바꾸면 됩니다. ---- */
+const TEST_STATIC_BACKGROUND = true;
+const TEST_STATIC_BACKGROUND_FILE = "day.png";
+
 /* ---- 사진 파일명 규칙: {시간}_{날씨}_{on|off}.png
    예) night_rain_on.png, sunset_snow_off.png, day_clear_on.png ---- */
 function applyBackgroundImage(timeKey, weatherLabel, lightOn) {
   const weatherKey = WEATHER_KEY_EN[weatherLabel] || "clear";
-  const file = `${timeKey}_${weatherKey}_${lightOn ? "on" : "off"}.png`;
+  const file = TEST_STATIC_BACKGROUND ? TEST_STATIC_BACKGROUND_FILE : `${timeKey}_${weatherKey}_${lightOn ? "on" : "off"}.png`;
   const appEl = document.getElementById("app");
   if (!appEl) return;
   const url = `assets/${file}`;
@@ -1164,7 +1171,7 @@ function getPlantDef(plantId) { return PLANT_CATALOG[plantId] || null; }
 /* ---------------------------------------------------------
    4-1-A. 선반 배치 시스템 (상단 / 중간 / 하단)
    =========================================================
-   ✏️ 선반 위치를 직접 수정하고 싶다면 아래 SHELF_TIERS 값만 바꾸면 됩니다.
+   ✏️ 선반 위치를 직접 수정하고 싶다면 아래 SHELF_TIERS_DESKTOP / SHELF_TIERS_MOBILE 값만 바꾸면 됩니다.
 
    - y : 화면 세로 위치 비율 (0 = 화면 맨 위, 1 = 화면 맨 아래)
          화분은 이 y값에 "고정"되고, 위/아래로는 움직이지 않습니다.
@@ -1175,18 +1182,33 @@ function getPlantDef(plantId) { return PLANT_CATALOG[plantId] || null; }
    예) 위 선반을 사진보다 살짝 아래로 내리고 싶다면
        top.y 값을 0.34 → 0.37 처럼 살짝 키우면 됩니다.
        왼쪽으로 더 이동 가능하게 하려면 xMin을 더 작게(예: 0.10) 하면 됩니다.
-
-   ※ styles.css 에서 .app 이 항상 핸드폰 화면 비율로 고정되기 때문에,
-      더 이상 "데스크톱용 / 모바일용" 값을 따로 둘 필요가 없습니다.
-      PC에서 열어도 폰과 완전히 같은 비율로 보이므로 이 값 하나만 사용합니다. */
-const SHELF_TIERS = {
-  top:    { key: "top",    label: "위 선반",   y: 0.2, xMin: 0.2, xMax: 0.8 },
-  middle: { key: "middle", label: "중간 선반", y: 0.585, xMin: 0.2, xMax: 0.8 },
-  bottom: { key: "bottom", label: "아래 선반", y: 0.86, xMin: 0.2, xMax: 0.8 },
+   --------------------------------------------------------- */
+/* 데스크톱(넓은 창)에서 쓰는 선반 높이.
+   .app 은 배경사진을 cover 로 채우기 때문에, 창의 가로세로 비율이 달라지면
+   사진이 잘리는 위치도 달라져서 실제 선반이 화면에 보이는 높이(%)가 달라집니다. */
+const SHELF_TIERS_DESKTOP = {
+  top:    { key: "top",    label: "위 선반",   y: 0.49, xMin: 0.32, xMax: 0.72 },
+  middle: { key: "middle", label: "중간 선반", y: 0.62, xMin: 0.16, xMax: 0.84 },
+  bottom: { key: "bottom", label: "아래 선반", y: 0.90, xMin: 0.16, xMax: 0.60 },
 };
 
+/* 모바일(좁은 창, 세로로 긴 화면)에서 쓰는 선반 높이.
+   ✏️ 폰에서 열었을 때 화분이 실제 선반 사진보다 위/아래로 어긋나 보이면
+      아래 y 값만 살짝 조정하면 됩니다. (0 = 화면 맨 위, 1 = 화면 맨 아래)
+   지금은 데스크톱과 동일한 값으로 시작하니, 폰에서 확인하면서 숫자를 바꿔보세요. */
+const SHELF_TIERS_MOBILE = {
+  top:    { key: "top",    label: "위 선반",   y: 0.49, xMin: 0.32, xMax: 0.72 },
+  middle: { key: "middle", label: "중간 선반", y: 0.62, xMin: 0.16, xMax: 0.84 },
+  bottom: { key: "bottom", label: "아래 선반", y: 0.90, xMin: 0.16, xMax: 0.60 },
+};
+
+// styles.css 의 `@media (min-width: 640px)` 분기와 기준을 맞춥니다.
+const MOBILE_BREAKPOINT_QUERY = "(max-width: 639px)";
+function isMobileViewport() {
+  return window.matchMedia(MOBILE_BREAKPOINT_QUERY).matches;
+}
 function getShelfTiers() {
-  return SHELF_TIERS;
+  return isMobileViewport() ? SHELF_TIERS_MOBILE : SHELF_TIERS_DESKTOP;
 }
 
 // 식물 종(species)이 속한 선반 정보를 돌려줍니다. 없으면 기본값(중간 선반)으로 처리합니다.
@@ -2410,7 +2432,7 @@ function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
 /* ---------------------------------------------------------
    화분을 놓을 정해진 위치 찾기.
-   각 식물 종류는 SHELF_TIERS 에 지정된 자기 선반(top/middle/bottom)이 있고,
+   각 식물 종류는 SHELF_TIERS_DESKTOP/SHELF_TIERS_MOBILE 에 지정된 자기 선반(top/middle/bottom)이 있고,
    그 선반 안에서 이미 놓인 다른 화분과 겹치지 않는 첫 빈 자리를 찾아 놓습니다.
    (더 이상 랜덤 위치가 아니고, 선반도 항상 식물 종류에 맞게 고정됩니다)
    --------------------------------------------------------- */
@@ -2647,6 +2669,17 @@ function showToast(msg) {
    --------------------------------------------------------- */
 renderPots();
 setInterval(() => { renderPots(); }, 5 * 60 * 1000); // 5분마다 물/건강 상태 갱신
+
+// 모바일 ↔ 데스크톱 너비 경계를 넘나들 때(창 크기 조절, 기기 회전 등) 선반 높이를 다시 계산합니다.
+if (window.matchMedia) {
+  const mobileBreakpointMql = window.matchMedia(MOBILE_BREAKPOINT_QUERY);
+  const handleBreakpointChange = () => renderPots();
+  if (mobileBreakpointMql.addEventListener) {
+    mobileBreakpointMql.addEventListener("change", handleBreakpointChange);
+  } else if (mobileBreakpointMql.addListener) {
+    mobileBreakpointMql.addListener(handleBreakpointChange); // 구형 Safari 호환
+  }
+}
 
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
