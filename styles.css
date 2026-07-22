@@ -208,37 +208,6 @@ button.topbar-cell:active{ opacity: 0.7; }
   font-size: 15px;
 }
 
-/* ===================== 레벨/경험치 스트립 ===================== */
-.exp-strip{
-  position: relative;
-  z-index: 20;
-  display:flex; align-items:center; gap:10px;
-  margin: 0 14px 8px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  text-align: left;
-}
-.exp-level{
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--glass-ink);
-  flex-shrink: 0;
-}
-.exp-track{
-  flex: 1;
-  height: 7px;
-  background: rgba(92, 68, 48, 0.12);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.exp-fill{
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, var(--leaf-light), var(--leaf));
-  border-radius: 999px;
-  transition: width 0.6s cubic-bezier(.2,.8,.2,1);
-}
-
 /* ===================== 카페 환경 스트립 (항상 표시) ===================== */
 .env-strip{
   position: relative;

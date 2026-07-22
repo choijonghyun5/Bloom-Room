@@ -636,43 +636,9 @@ function loadCoin() {
 loadCoin();
 
 /* ---------------------------------------------------------
-   3-1. 레벨 / 경험치 시스템
+   3-1. 코인 지급 / 통계
    --------------------------------------------------------- */
-const LEVEL_KEY = "greennote.level.v1";
 const STATS_KEY = "greennote.stats.v1";
-
-function loadLevel() {
-  try {
-    return JSON.parse(localStorage.getItem(LEVEL_KEY)) || { level: 1, exp: 0 };
-  } catch (e) {
-    return { level: 1, exp: 0 };
-  }
-}
-function saveLevel(l) { localStorage.setItem(LEVEL_KEY, JSON.stringify(l)); }
-
-function expNeeded(level) { return 100 + (level - 1) * 40; }
-
-function renderLevel() {
-  const l = loadLevel();
-  const need = expNeeded(l.level);
-  document.getElementById("expLevel").textContent = "Lv." + l.level;
-  document.getElementById("expFill").style.width = clamp(l.exp / need, 0, 1) * 100 + "%";
-}
-renderLevel();
-
-function addExp(amount) {
-  const l = loadLevel();
-  l.exp += amount;
-  let leveledUp = false;
-  while (l.exp >= expNeeded(l.level)) {
-    l.exp -= expNeeded(l.level);
-    l.level += 1;
-    leveledUp = true;
-  }
-  saveLevel(l);
-  renderLevel();
-  return leveledUp;
-}
 
 function addCoin(amount) {
   const v = parseInt(localStorage.getItem(COIN_KEY) || "0", 10) + amount;
@@ -720,26 +686,12 @@ function renderFocusCta() {
 }
 renderFocusCta();
 
-document.getElementById("expStrip").addEventListener("click", () => {
-  const l = loadLevel();
-  const s = loadStats();
-  sheetBody.dataset.kind = "level";
-  sheetBody.innerHTML = `
-    <h3>Lv.${l.level} 그린노트</h3>
-    <p>다음 레벨까지 ${expNeeded(l.level) - l.exp} EXP 남았어요.<br/>
-    지금까지 총 ${Math.floor(s.totalSeconds / 60)}분 집중했어요.</p>
-    <button class="sheet-btn" id="sheetClose">닫기</button>`;
-  sheetBackdrop.classList.add("show");
-  document.getElementById("sheetClose").addEventListener("click", closeSheet);
-});
-
 /* ---------------------------------------------------------
    3-2. 공부(집중) 타이머
-   보상: 코인 = 분당 2, 경험치 = 분당 3
+   보상: 코인 = 분당 2
    --------------------------------------------------------- */
 const FOCUS_KEY = "greennote.focus.v1";
 const COIN_PER_MIN = 2;
-const EXP_PER_MIN = 3;
 const RING_CIRCUMFERENCE = 2 * Math.PI * 90;
 
 const focusOverlay = document.getElementById("focusOverlay");
@@ -891,10 +843,8 @@ function completeFocus(elapsedSeconds, isEarlyStop) {
   stopTick();
   const minutes = Math.max(1, Math.round(elapsedSeconds / 60));
   const coinsEarned = minutes * COIN_PER_MIN;
-  const expEarned = minutes * EXP_PER_MIN;
 
   addCoin(coinsEarned);
-  const leveledUp = addExp(expEarned);
 
   const s = loadStats();
   s.totalSeconds += Math.round(elapsedSeconds);
@@ -915,7 +865,7 @@ function completeFocus(elapsedSeconds, isEarlyStop) {
   sheetBody.innerHTML = `
     <h3>${isEarlyStop ? "여기까지도 잘했어요" : "집중을 마쳤어요 🌿"}</h3>
     <p>${minutes}분 동안 집중했어요.</p>
-    <p>🪙 코인 +${coinsEarned} &nbsp; ✨ 경험치 +${expEarned}${leveledUp ? " &nbsp; 🎉 레벨업!" : ""}</p>
+    <p>🪙 코인 +${coinsEarned}</p>
     <p style="color:var(--ink-faint); font-size:12.5px;">${grownCount > 0 ? `🌱 화분 ${grownCount}개가 조금 더 자랐어요.` : "심어둔 화분이 있으면 집중할 때마다 함께 자라나요."}</p>
     <button class="sheet-btn" id="sheetClose">좋아요</button>`;
   sheetBackdrop.classList.add("show");
@@ -1380,7 +1330,7 @@ function dexCompletionRatio() {
 
 /* ---------------------------------------------------------
    4-6-1. 업적 시스템
-   조건은 이미 기록 중인 통계/도감/레벨 데이터를 기준으로 판정하며,
+   조건은 이미 기록 중인 통계/도감 데이터를 기준으로 판정하며,
    달성 시 1회만 토스트로 축하 메시지를 보여줍니다.
    --------------------------------------------------------- */
 const ACH_KEY = "greennote.achievements.v1";
@@ -1400,8 +1350,6 @@ const ACHIEVEMENTS = [
     check: () => (loadStats().totalSeconds || 0) >= 100 * 3600 },
   { id: "water50", icon: "💧", title: "정성 가득 물주기", desc: "물을 총 50회 주어보세요.",
     check: () => (loadStats().totalWaterings || 0) >= 50 },
-  { id: "level5", icon: "🎖️", title: "Lv.5 달성", desc: "레벨 5에 도달해보세요.",
-    check: () => loadLevel().level >= 5 },
   { id: "dexComplete", icon: "📖", title: "도감 완성", desc: "보유한 모든 식물 종을 심어보세요.",
     check: () => dexCompletionRatio().pct >= 100 },
   { id: "firstPhoto", icon: "📸", title: "첫 기록", desc: "화분을 확대해서 사진을 찍어보세요.",
@@ -1667,7 +1615,6 @@ function harvestPot(pot) {
   const payout = Math.round(def.fruitPrice * rarityMult * (isBumper ? 2 : 1));
 
   addCoin(payout);
-  addExp(Math.round(payout * 0.3));
 
   const s = loadStats();
   s.coinsEarned = (s.coinsEarned || 0) + payout;
@@ -2332,7 +2279,6 @@ function capturePotPhoto(pot) {
     const s = loadStats();
     s.totalPhotos = (s.totalPhotos || 0) + 1;
     saveStats(s);
-    addExp(2);
     showToast("사진을 저장했어요 📸");
     checkAchievements();
   }, "image/png");
