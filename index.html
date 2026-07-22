@@ -274,20 +274,26 @@ html : ${document.documentElement.getBoundingClientRect().height}`);
 </script>
 
 <script>
-alert("standalone = " + navigator.standalone);
-</script>
+window.addEventListener("load", () => {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
 
-<script>
-window.onload = () => {
-  const dock = document.querySelector(".dock");
+      const app = document.getElementById("app");
+      const dock = document.querySelector(".dock");
 
-  alert(
-`window=${window.innerHeight}
-app=${document.querySelector(".app").getBoundingClientRect().height}
-dockTop=${dock.getBoundingClientRect().top}
-dockBottom=${dock.getBoundingClientRect().bottom}
-dockHeight=${dock.getBoundingClientRect().height}`);
-};
+      alert(`
+window = ${window.innerHeight}
+
+appBottom = ${app.getBoundingClientRect().bottom}
+
+dockTop = ${dock.getBoundingClientRect().top}
+
+dockBottom = ${dock.getBoundingClientRect().bottom}
+`);
+
+    });
+  });
+});
 </script>
 
 </body>
