@@ -438,28 +438,6 @@ button.topbar-cell:active{ opacity: 0.7; }
   0%{ transform: translate(-50%,-100%) scale(0.7); opacity:0; }
   100%{ transform: translate(-50%,-100%) scale(1); opacity:1; }
 }
-.pot-sprout{
-  width: 20px; height: 26px;
-  margin-bottom: -4px;
-  position: relative;
-  z-index: 2;
-}
-.pot-sprout .leaf{
-  position:absolute; bottom:0; width: 14px; height: 20px;
-  background: var(--leaf);
-  border-radius: 60% 60% 60% 0;
-  transform-origin: bottom center;
-  animation: leafSway 4.5s ease-in-out infinite;
-  filter: var(--scene-filter, none);
-  transition: filter 1.4s ease;
-}
-.pot-sprout .leaf.l2{
-  background: var(--leaf-light);
-  transform: scaleX(-1);
-  left: 4px;
-  animation-delay: -2.2s;
-}
-.pot-sprout .leaf.l1{ left: -4px; }
 @keyframes leafSway{
   0%,100%{ transform: rotate(-6deg); }
   50%{ transform: rotate(6deg); }
@@ -488,14 +466,6 @@ button.topbar-cell:active{ opacity: 0.7; }
   border-radius: 999px;
   box-shadow: var(--shadow-soft);
   white-space: nowrap;
-}
-.pot.is-empty .pot-body{ opacity: 0.55; }
-.pot.is-empty .pot-body::after{
-  content:"＋";
-  position:absolute; inset:0;
-  display:flex; align-items:center; justify-content:center;
-  color: rgba(255,255,255,0.85);
-  font-size: 18px;
 }
 
 /* --- 물주기 이펙트 --- */
@@ -615,6 +585,18 @@ button.topbar-cell:active{ opacity: 0.7; }
   position:absolute; top: -4px; right: -4px;
   font-size: 13px; z-index: 4;
 }
+/* --- 건강도 0: 시든 화분 표시 ---
+   전용 시든 사진(wiltedFile)이 준비되기 전까지는, 마지막으로 자란 모습이나
+   CSS 잎 모양 위에 흑백/갈변 필터를 씌워 "시들었다"는 느낌을 대신 표현합니다.
+   나중에 시든 사진을 등록하면 .is-wilted 쪽(필터 없는 실제 사진)이 대신 쓰입니다. */
+.plant-photo.is-wilted-fallback,
+.plant.is-wilted-fallback{
+  filter: grayscale(0.75) sepia(0.35) brightness(0.82) !important;
+}
+.plant.is-wilted-fallback .leaf{ animation: none !important; opacity: 0.85; }
+.plant-photo.is-wilted{ filter: var(--scene-filter, none) drop-shadow(0 6px 8px rgba(64,48,31,0.22)); }
+.pot.is-dead .pot-label{ color: var(--ink-faint); }
+.wilted-badge{ font-size: 13px; }
 .pot-harvest-badge{
   position:absolute; bottom: -4px; left: -4px;
   font-size: 13px; z-index: 4;
@@ -641,7 +623,6 @@ button.topbar-cell:active{ opacity: 0.7; }
   transition: transform 0.15s ease;
 }
 .plant-card:active{ transform: scale(0.97); }
-.plant-card .pc-icon{ font-size: 24px; }
 .plant-card .pc-name{
   font-family: var(--font-display);
   font-size: 14px;
@@ -1357,7 +1338,6 @@ button.topbar-cell:active{ opacity: 0.7; }
   padding: 12px;
   box-shadow: var(--shadow-soft);
 }
-.season-card-icon{ font-size: 22px; }
 .season-card-name{ font-family: var(--font-display); font-size: 13px; color: var(--wood-deep); }
 .season-card-diff{ font-size: 10.5px; color: var(--leaf-deep); font-weight: 600; }
 .season-card-meta{ font-size: 10px; color: var(--ink-faint); line-height: 1.5; min-height: 30px; }
@@ -1382,7 +1362,31 @@ button.topbar-cell:active{ opacity: 0.7; }
 }
 .shop-card[data-guide]{ cursor: pointer; }
 .shop-card[data-guide]:active{ transform: scale(0.97); }
-.sc-icon{ font-size: 24px; }
+
+/* 상점 카드 썸네일 (씨앗 화분 사진 / 미준비 플레이스홀더)
+   ✏️ 아직 사진이 없는 식물은 PLANT_IMAGE_STAGES(app.js)에 항목만 추가하면
+      이 틀이 자동으로 실제 사진으로 바뀝니다. */
+.shop-thumb{
+  width: 100%; aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--leaf-pale);
+  display:flex; align-items:center; justify-content:center;
+}
+.shop-thumb img{
+  width: 100%; height: 100%;
+  object-fit: contain;
+  padding: 6px;
+}
+.shop-thumb-empty{
+  flex-direction: column; gap: 4px;
+  background: var(--card-bg);
+  border: 1.5px dashed var(--paper-line);
+}
+.shop-thumb-empty-icon{ font-size: 26px; opacity: 0.55; }
+.shop-thumb-empty-label{ font-size: 9.5px; color: var(--ink-faint); }
+.shop-thumb-sm{ width: 100%; aspect-ratio: 1 / 1; }
+.shop-thumb-sm .shop-thumb-empty-icon{ font-size: 20px; }
 .sc-name{ font-family: var(--font-display); font-size: 13.5px; color: var(--wood-deep); }
 .sc-meta{ font-size: 11px; color: var(--ink-faint); line-height: 1.5; min-height: 28px; }
 .sc-buy{

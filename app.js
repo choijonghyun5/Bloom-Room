@@ -1033,8 +1033,9 @@ renderPresetChips();
 /* ---------------------------------------------------------
    4. 화분 데이터 모델 + 렌더링
       { id, x(0~1 비율), y(0~1 비율),
-        plantId, growthUnits, health, plantedAt, lastWateredAt, name }
-      plantId 가 null 이면 빈 화분입니다.
+        plantId, growthUnits, health, plantedAt, lastWateredAt, name, dead }
+      화분은 상점에서 씨앗과 함께 구매되어 배치되므로 항상 plantId가 채워져
+      있습니다. dead 가 true 이면 건강도가 0이 되어 시든 상태입니다.
    --------------------------------------------------------- */
 function loadPots() {
   try {
@@ -1317,12 +1318,17 @@ const PLANT_IMAGE_STAGES = {
     files: ["step_1.png", "step_2.png", "step_3.png", "step_4.png", "step_5.png", "step_6.png"],
     // STAGES: 씨앗,발아,새싹,어린 식물,성체,완전한 성체 (6단계 = 사진 6장, 1:1 매칭)
     stageToImage: [1, 2, 3, 4, 5, 6],
+    // 건강도 0으로 시들었을 때 보여줄 전용 사진. 준비되면 파일명만 채우면
+    // 바로 적용됩니다 (예: "wilted.png"). null인 동안은 자동으로
+    // CSS 톤 처리(흑백/갈변)로 시든 느낌을 대신 표시합니다.
+    wiltedFile: null,
   },
   rubbertree: {
     basePath: "assets/plants/rubbertree/",
     files: ["step_1.png", "step_2.png", "step_3.png", "step_4.png", "step_5.png", "step_6.png"],
     // STAGES: 씨앗,발아,새싹,어린 식물,성체,완전한 성체 (6단계 = 사진 6장, 1:1 매칭)
     stageToImage: [1, 2, 3, 4, 5, 6],
+    wiltedFile: null,
   },
 };
 
@@ -1332,6 +1338,14 @@ function getPlantImageSrc(plantId, stageIndex) {
   const map = cfg.stageToImage;
   const num = map[clamp(stageIndex, 0, map.length - 1)];
   return cfg.basePath + cfg.files[num - 1];
+}
+
+/* 시든 식물 전용 사진. 아직 준비되지 않은 식물은 null을 반환하며,
+   이 경우 마지막 성장 사진 위에 CSS로 흑백/갈변 처리를 해서 임시로 표현합니다. */
+function getPlantWiltedImageSrc(plantId) {
+  const cfg = PLANT_IMAGE_STAGES[plantId];
+  if (!cfg || !cfg.wiltedFile) return null;
+  return cfg.basePath + cfg.wiltedFile;
 }
 
 // 카페 화면/확대뷰/사진찍기에서 반복 사용할 <img> 엘리먼트를 미리 만들어 캐싱합니다.
@@ -1350,6 +1364,26 @@ function preloadPlantImages() {
   });
 }
 preloadPlantImages();
+
+/* ---------------------------------------------------------
+   4-2-A. 상점용 썸네일 (씨앗 화분 사진)
+   PLANT_IMAGE_STAGES 에 등록된(=사진이 준비된) 식물은 stage1(씨앗) 사진을
+   그대로 상점 카드에 보여줍니다. 아직 사진이 없는 식물은 이모지 아이콘이
+   담긴 점선 플레이스홀더 틀로 표시되며, 나중에 PLANT_IMAGE_STAGES 에
+   해당 식물 항목만 추가하면 자동으로 사진으로 교체됩니다.
+   --------------------------------------------------------- */
+function getShopThumbHtml(def, opts) {
+  opts = opts || {};
+  const cls = "shop-thumb" + (opts.small ? " shop-thumb-sm" : "");
+  const src = getPlantImageSrc(def.id, 0); // stage1(씨앗) 사진
+  if (src) {
+    return `<div class="${cls}"><img src="${src}" alt="${def.name}" loading="lazy" /></div>`;
+  }
+  return `<div class="${cls} shop-thumb-empty">
+      <span class="shop-thumb-empty-icon">${def.icon}</span>
+      <span class="shop-thumb-empty-label">사진 준비중</span>
+    </div>`;
+}
 
 /* ---------------------------------------------------------
    4-1-1. 도감(Dex) 시스템
@@ -1424,6 +1458,8 @@ const ACHIEVEMENTS = [
     check: () => dexCompletionRatio().pct >= 100 },
   { id: "firstPhoto", icon: "📸", title: "첫 기록", desc: "화분을 확대해서 사진을 찍어보세요.",
     check: () => (loadStats().totalPhotos || 0) >= 1 },
+  { id: "firstFail", icon: "🥀", title: "첫 실패", desc: "식물을 한 번 시들게 해보세요.",
+    check: () => (loadStats().totalDied || 0) >= 1 },
 ];
 
 function loadAchievements() {
@@ -1452,19 +1488,61 @@ function checkAchievements() {
 /* ---------------------------------------------------------
    4-2. 관리 정보 계산 (물/광합성/습도/건강도)
    --------------------------------------------------------- */
+/* 난이도별 건강도 민감도 배율. 값이 클수록 관리를 소홀히 했을 때
+   건강도가 더 빨리 떨어지고, 물을 줘도 덜 회복됩니다.
+   (쉬움: 관대함 / 보통: 기본 / 어려움: 예민함) */
+const DIFFICULTY_HEALTH_SENSITIVITY = {
+  "쉬움": 0.6,
+  "보통": 1.0,
+  "어려움": 1.7,
+};
+function getDifficultyHealthMult(def) {
+  return DIFFICULTY_HEALTH_SENSITIVITY[def && def.difficulty] || 1.0;
+}
+
+/* 화분의 건강도가 0이 되면 시들어 죽습니다.
+   한 번 죽으면 되돌릴 수 없고, 성장/물주기/수확 등 모든 관리가 멈추며
+   시든 상태로 화면에 고정됩니다. */
+function markPotDead(pot) {
+  if (pot.dead) return;
+  pot.dead = true;
+  pot.health = 0;
+  pot.deadAt = Date.now();
+  savePots(pots);
+  const s = loadStats();
+  s.totalDied = (s.totalDied || 0) + 1;
+  saveStats(s);
+}
+
 function computeCareStatus(pot) {
   const def = getPlantDef(pot.plantId);
   const env = computeEnvironment();
   const now = Date.now();
   const daysSinceWater = (now - pot.lastWateredAt) / 86400000;
+
+  if (pot.dead) {
+    return {
+      def, env, waterLevel: 0, overdueDays: 0, lightOk: true, humidityOk: true,
+      health: 0, daysSinceWater,
+      alerts: [{ msg: `${def.name}이(가) 시들었어요 🥀`, tip: "새로운 씨앗을 심어 다시 시작해보세요." }],
+      needsAttention: false, isDead: true,
+    };
+  }
+
   const waterLevel = clamp(100 - (daysSinceWater / def.waterIntervalDays) * 100, 0, 100);
   const overdueDays = Math.max(0, daysSinceWater - def.waterIntervalDays);
   const lightOk = env.light >= def.lightMin && env.light <= def.lightMax;
   const humidityOk = env.humidity >= def.humidityMin && env.humidity <= def.humidityMax;
+  const diffMult = getDifficultyHealthMult(def);
   const health = clamp(
-    (pot.health || 100) - overdueDays * 6 - (humidityOk ? 0 : 6),
+    (pot.health || 100) - (overdueDays * 6 + (humidityOk ? 0 : 6)) * diffMult,
     0, 100
   );
+
+  if (health <= 0) {
+    markPotDead(pot);
+    return computeCareStatus(pot);
+  }
 
   const alerts = [];
   if (waterLevel < 25) alerts.push({ msg: `${def.name}이(가) 목말라해요.`, tip: "물뿌리개로 물을 주세요." });
@@ -1475,50 +1553,32 @@ function computeCareStatus(pot) {
 
   return {
     def, env, waterLevel, overdueDays, lightOk, humidityOk, health, alerts, daysSinceWater,
-    needsAttention: waterLevel < 25 || !lightOk || !humidityOk,
+    needsAttention: waterLevel < 25 || !lightOk || !humidityOk, isDead: false,
   };
 }
 
 /* ---------------------------------------------------------
-   4-3. 심기 / 물주기 / 집중 성장 반영
+   4-3. 물주기 / 집중 성장 반영
+   화분과 씨앗이 항상 함께 배치되는 구조로 바뀌면서, "빈 화분에 나중에
+   씨앗을 심는" 흐름은 더 이상 존재하지 않습니다. (화분은 placeSeedPot 에서
+   생성되는 순간 이미 plantId 가 채워져 있습니다.)
    --------------------------------------------------------- */
-/* 이전 버전에서 만들어진 "빈 화분"이 남아있는 경우를 위한 호환용 함수.
-   보유한 씨앗 화분(inv.seedPots)을 사용해 빈 화분에 바로 심습니다. */
-function plantSeed(pot, plantId) {
-  const inv = loadInventory();
-  if (!inv.seedPots[plantId] || inv.seedPots[plantId] <= 0) { showToast("씨앗 화분이 없어요"); return; }
-  const def = getPlantDef(plantId);
-  if (!def) return;
-  inv.seedPots[plantId] -= 1;
-  saveInventory(inv);
-  pot.plantId = plantId;
-  pot.growthUnits = 0;
-  pot.health = 100;
-  pot.plantedAt = Date.now();
-  pot.lastWateredAt = Date.now();
-  pot.name = null;
-  pot.matureCounted = false;
-  savePots(pots);
-
-  const isNew = unlockDexEntry(plantId);
-  const s = loadStats();
-  s.totalPlanted = (s.totalPlanted || 0) + 1;
-  saveStats(s);
-
-  renderPots();
-  closeSheet();
-  showToast(isNew ? `${def.name}을(를) 도감에 새로 등록했어요 📖` : `${def.name} 씨앗을 심었어요 🌱`);
-}
 
 function waterPot(pot) {
   const care = computeCareStatus(pot);
+  if (care.isDead) {
+    showToast("이미 시들어버렸어요 🥀 새로운 씨앗을 심어보세요.");
+    return;
+  }
   const hoursSince = (Date.now() - pot.lastWateredAt) / 3600000;
   if (hoursSince < 4) {
     showToast("아직 촉촉해요. 조금 더 기다려주세요 🌿");
     return;
   }
   pot.lastWateredAt = Date.now();
-  pot.health = clamp(care.health + 12, 0, 100);
+  // 난이도가 어려울수록 물을 줘도 건강도가 덜 회복됩니다.
+  const healAmount = 12 / getDifficultyHealthMult(care.def);
+  pot.health = clamp(care.health + healAmount, 0, 100);
   const def = care.def;
   if (pot.growthUnits < def.totalNeeded) {
     const gain = Math.round(def.totalNeeded * 0.03);
@@ -1604,6 +1664,9 @@ function growPlantsFromFocus(minutes) {
    --------------------------------------------------------- */
 const INVENTORY_KEY = "greennote.inventory.v1";
 
+// ✏️ 화분 자리는 더 이상 상점에서 구매/확장할 수 없고, 항상 15개로 고정됩니다.
+const MAX_POT_SLOTS = 15;
+
 function loadInventory() {
   try {
     const inv = JSON.parse(localStorage.getItem(INVENTORY_KEY));
@@ -1612,14 +1675,14 @@ function loadInventory() {
       if (inv.seeds && !inv.seedPots) inv.seedPots = inv.seeds;
       inv.seedPots = inv.seedPots || {};
       delete inv.seeds;
-      inv.potSlots = inv.potSlots || 9;
+      delete inv.potSlots; // 더 이상 사용하지 않음 (MAX_POT_SLOTS 로 고정)
       inv.fertilizer = inv.fertilizer || 0;
       delete inv.devices; // 조명·가습기·제습기는 이제 기본 제공되어 더 이상 소유 여부를 추적하지 않음
       return inv;
     }
   } catch (e) {}
   // 첫 방문 시 기본 지급: 바질 씨앗 화분 1개, 비료 1개로 바로 체험해볼 수 있어요.
-  return { seedPots: { basil: 1 }, fertilizer: 1, potSlots: 9 };
+  return { seedPots: { basil: 1 }, fertilizer: 1 };
 }
 function saveInventory(inv) { localStorage.setItem(INVENTORY_KEY, JSON.stringify(inv)); }
 function getCoinValue() { return parseInt(localStorage.getItem(COIN_KEY) || "0", 10); }
@@ -1627,7 +1690,6 @@ function getCoinValue() { return parseInt(localStorage.getItem(COIN_KEY) || "0",
 const TOOL_ITEMS = [
   { id: "fertilizer", name: "비료", icon: "🌿", price: 80, desc: "화분 하나의 성장치를 즉시 조금 늘려줘요." },
 ];
-function potSlotPrice(slots) { return 150 + (slots - 9) * 60; }
 
 function buyItem(price, onSuccess) {
   if (getCoinValue() < price) { showToast("코인이 부족해요 🪙"); return; }
@@ -1654,16 +1716,6 @@ function buyFertilizer() {
     renderShopCategory("tools");
   });
 }
-function buyPotSlot() {
-  const inv = loadInventory();
-  const price = potSlotPrice(inv.potSlots);
-  buyItem(price, () => {
-    inv.potSlots += 1;
-    saveInventory(inv);
-    showToast("화분 자리가 늘어났어요 🪴");
-    renderShopCategory("pots");
-  });
-}
 /* ---------------------------------------------------------
    4-3-1. 수확 및 판매
    열매를 맺는 식물이 완전 성장(열매) 단계에 도달하면 수확할 수 있어요.
@@ -1671,6 +1723,7 @@ function buyPotSlot() {
    개화 단계로 살짝 되돌아가 자연스럽게 재성장합니다.
    --------------------------------------------------------- */
 function canHarvest(pot) {
+  if (pot.dead) return false;
   const def = getPlantDef(pot.plantId);
   if (!def || !def.hasFruit) return false;
   return getStageInfo(pot).index === STAGES.length - 1;
@@ -1733,6 +1786,7 @@ function openHarvestChoiceSheet(pot) {
    열매를 맺는 식물은 위의 선택 시트에서 번식을 고르면 실행됩니다.
    --------------------------------------------------------- */
 function canBreedNow(pot) {
+  if (pot.dead) return false;
   const def = getPlantDef(pot.plantId);
   if (!def || def.hasFruit) return false;
   return getStageInfo(pot).index === STAGES.length - 1;
@@ -1764,6 +1818,7 @@ function breedPlant(pot) {
 }
 
 function useFertilizer(pot) {
+  if (pot.dead) { showToast("이미 시들어버렸어요 🥀"); return; }
   const inv = loadInventory();
   if (!inv.fertilizer) { showToast("비료가 없어요. 상점에서 구매해보세요"); return; }
   const def = getPlantDef(pot.plantId);
@@ -1793,8 +1848,8 @@ function seasonRecoHtml() {
     if (!def) return "";
     return `
       <button class="season-card" data-buy="seedPot" data-id="${def.id}">
-        <span class="season-card-icon">${def.icon}</span>
-        <span class="season-card-name">${def.name} 화분</span>
+        ${getShopThumbHtml(def, { small: true })}
+        <span class="season-card-name">${def.name} 씨앗</span>
         <span class="season-card-diff">난이도 ${def.difficulty}</span>
         <span class="season-card-meta">☀️ ${def.lightMin}~${def.lightMax}% · 💧 ${def.waterIntervalDays}일 · 💦 ${def.humidityMin}~${def.humidityMax}%</span>
         <span class="season-card-buy">🪙 ${def.price}</span>
@@ -1811,6 +1866,7 @@ let activeShopCat = "seeds";
 const SEED_CATEGORIES = ["전체", "관엽식물", "꽃", "과일", "허브"];
 let activeSeedCat = "전체";
 function renderShopCategory(cat) {
+  if (cat !== "seeds" && cat !== "tools") cat = "seeds"; // 더 이상 존재하지 않는 화분 탭 등 대비
   activeShopCat = cat;
   document.querySelectorAll(".shop-tab").forEach((t) => t.classList.toggle("is-active", t.dataset.cat === cat));
   document.getElementById("shopCoinValue").textContent = getCoinValue();
@@ -1826,8 +1882,8 @@ function renderShopCategory(cat) {
         <button class="seed-cat-chip${c === activeSeedCat ? " is-active" : ""}" data-seedcat="${c}">${c}</button>`).join("")}</div>
       <div class="shop-grid">${filtered.map((def) => `
       <div class="shop-card" data-guide="${def.id}">
-        <span class="sc-icon">${def.icon}</span>
-        <span class="sc-name">${def.name} 화분</span>
+        ${getShopThumbHtml(def)}
+        <span class="sc-name">${def.name} 씨앗</span>
         <span class="sc-meta">보유 ${inv.seedPots[def.id] || 0}개 · 난이도 ${def.difficulty}</span>
         <button class="sc-buy" data-buy="seedPot" data-id="${def.id}">🪙 ${def.price}</button>
       </div>`).join("") || `<p class="shop-soon">이 분류에는 아직 식물이 없어요.</p>`}</div>`;
@@ -1839,16 +1895,6 @@ function renderShopCategory(cat) {
         <span class="sc-meta">보유 ${inv.fertilizer || 0}개 · ${item.desc}</span>
         <button class="sc-buy" data-buy="fertilizer" data-id="${item.id}">🪙 ${item.price}</button>
       </div>`).join("")}</div>`;
-  } else if (cat === "pots") {
-    const price = potSlotPrice(inv.potSlots);
-    scroll.innerHTML = `<div class="shop-grid">
-      <div class="shop-card">
-        <span class="sc-icon">🪴</span>
-        <span class="sc-name">화분 자리 확장</span>
-        <span class="sc-meta">현재 ${inv.potSlots}자리 → ${inv.potSlots + 1}자리</span>
-        <button class="sc-buy" data-buy="potSlot">🪙 ${price}</button>
-      </div>
-    </div>`;
   }
 
   if (cat === "seeds") {
@@ -1875,7 +1921,6 @@ function renderShopCategory(cat) {
       const kind = btn.dataset.buy;
       if (kind === "seedPot") buySeedPot(btn.dataset.id);
       else if (kind === "fertilizer") buyFertilizer();
-      else if (kind === "potSlot") buyPotSlot();
     });
   });
 }
@@ -1946,8 +1991,8 @@ function renderStats() {
   const s = loadStats();
   const dexInfo = dexCompletionRatio();
   const totalPlanted = s.totalPlanted || 0;
-  const currentlyPlanted = pots.filter((p) => p.plantId).length;
-  const survivalPct = totalPlanted > 0 ? Math.min(100, Math.round((currentlyPlanted / totalPlanted) * 100)) : 100;
+  const totalDied = s.totalDied || 0;
+  const survivalPct = totalPlanted > 0 ? clamp(Math.round(((totalPlanted - totalDied) / totalPlanted) * 100), 0, 100) : 100;
   const longest = longestKeptPot();
   const longestLabel = longest
     ? `${(getPlantDef(longest.plantId) || {}).name || "식물"} · ${Math.max(0, Math.floor((Date.now() - longest.plantedAt) / 86400000))}일째`
@@ -1971,6 +2016,10 @@ function renderStats() {
       <div class="stat-card">
         <div class="stat-card-label">식물 생존율</div>
         <div class="stat-card-value">${survivalPct}%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">시들어 죽은 식물</div>
+        <div class="stat-card-value">🥀 ${totalDied}그루</div>
       </div>
       <div class="stat-card">
         <div class="stat-card-label">총 수확 횟수</div>
@@ -2038,6 +2087,21 @@ function renderPots() {
 }
 
 function renderPlantVisual(def, stage, pot) {
+  if (pot.dead) {
+    const wiltedSrc = getPlantWiltedImageSrc(def.id);
+    if (wiltedSrc) {
+      return `<img class="plant-photo is-wilted" src="${wiltedSrc}" alt="${def.name} · 시듦" draggable="false" />`;
+    }
+    // 전용 시든 사진이 아직 없으면, 마지막으로 자란 모습을 흑백/갈변 처리해 대신 보여줍니다.
+    const fallbackPhotoSrc = getPlantImageSrc(def.id, stage.index);
+    if (fallbackPhotoSrc) {
+      return `<img class="plant-photo is-wilted-fallback" src="${fallbackPhotoSrc}" alt="${def.name} · 시듦" draggable="false" />`;
+    }
+    const leafCount = Math.min(5, 1 + stage.index);
+    let leaves = "";
+    for (let i = 0; i < leafCount; i++) leaves += `<div class="leaf"></div>`;
+    return `<div class="plant is-wilted-fallback" style="--stage:${stage.index}">${leaves}</div>`;
+  }
   const photoSrc = getPlantImageSrc(def.id, stage.index);
   if (photoSrc) {
     return `<img class="plant-photo" src="${photoSrc}" alt="${def.name} · ${stage.label}" draggable="false" />`;
@@ -2062,9 +2126,9 @@ function renderPlantVisual(def, stage, pot) {
 }
 
 function renderPot(pot) {
+  if (!pot.plantId) return; // 화분은 항상 식물과 함께 생성되므로 정상적으로는 발생하지 않음
   const el = document.createElement("div");
-  const planted = !!pot.plantId;
-  el.className = "pot" + (!planted ? " is-empty" : "");
+  el.className = "pot";
   // y(선반 높이)는 항상 "현재 화면"의 선반 기준으로 다시 계산합니다.
   // (같은 데이터를 데스크톱/모바일에서 번갈아 열어도 선반 위치가 어긋나지 않도록)
   const tier = getShelfTierForPot(pot);
@@ -2073,28 +2137,22 @@ function renderPot(pot) {
   el.style.top = (tier.y * 100) + "%";
   el.dataset.id = pot.id;
 
-  if (!planted) {
-    el.innerHTML = `
-      <div class="pot-sprout"></div>
-      <div class="pot-body"></div>
-      <div class="pot-label">빈 화분</div>
-    `;
-  } else {
-    const def = getPlantDef(pot.plantId);
-    const stage = getStageInfo(pot);
-    const care = computeCareStatus(pot);
-    updateDexProgress(pot);
-    const hasPhoto = !!getPlantImageSrc(pot.plantId, stage.index);
-    if (hasPhoto) el.classList.add("pot-photo");
-    el.innerHTML = `
-      ${renderPlantVisual(def, stage, pot)}
-      ${hasPhoto ? "" : `<div class="pot-body"></div>`}
-      ${canHarvest(pot) ? `<div class="pot-harvest-badge" title="수확할 수 있어요">🧺</div>` : ""}
-      ${canBreedNow(pot) ? `<div class="pot-harvest-badge" title="번식할 수 있어요">🌱</div>` : ""}
-      ${care.needsAttention ? `<div class="pot-alert" title="관리가 필요해요">⚠️</div>` : ""}
-      <div class="pot-label">${pot.name || def.name} · ${stage.label}</div>
-    `;
-  }
+  const def = getPlantDef(pot.plantId);
+  const stage = getStageInfo(pot);
+  const care = computeCareStatus(pot);
+  updateDexProgress(pot);
+  if (pot.dead) el.classList.add("is-dead");
+  const hasPhoto = !!getPlantImageSrc(pot.plantId, stage.index) || !!getPlantWiltedImageSrc(pot.plantId);
+  if (hasPhoto) el.classList.add("pot-photo");
+  el.innerHTML = `
+    ${renderPlantVisual(def, stage, pot)}
+    ${hasPhoto ? "" : `<div class="pot-body"></div>`}
+    ${canHarvest(pot) ? `<div class="pot-harvest-badge" title="수확할 수 있어요">🧺</div>` : ""}
+    ${canBreedNow(pot) ? `<div class="pot-harvest-badge" title="번식할 수 있어요">🌱</div>` : ""}
+    ${care.needsAttention ? `<div class="pot-alert" title="관리가 필요해요">⚠️</div>` : ""}
+    ${pot.dead ? `<div class="pot-alert wilted-badge" title="시들었어요">🥀</div>` : ""}
+    <div class="pot-label">${pot.name || def.name}${pot.dead ? " · 시듦 🥀" : ` · ${stage.label}`}</div>
+  `;
 
   makeDraggable(el, pot, potsZone, () => { savePots(pots); showToast("화분 위치를 저장했어요"); });
   el.addEventListener("click", (e) => {
@@ -2238,7 +2296,12 @@ function drawPotPortrait(canvas, pot) {
   ctx.restore();
 
   // 식물은 화분 테두리 뒤에서 자라나오는 것처럼 먼저 그림
-  const photoSrc = planted ? getPlantImageSrc(pot.plantId, stage.index) : null;
+  const isDead = planted && !!pot.dead;
+  const wiltedSrc = isDead ? getPlantWiltedImageSrc(pot.plantId) : null;
+  const photoSrc = wiltedSrc || (planted ? getPlantImageSrc(pot.plantId, stage.index) : null);
+
+  if (isDead) ctx.save();
+  if (isDead) ctx.filter = "grayscale(0.75) sepia(0.35) brightness(0.82)";
 
   if (photoSrc) {
     drawPlantPhotoOnCanvas(canvas, pot, photoSrc, W / 2, potBottomY);
@@ -2264,10 +2327,12 @@ function drawPotPortrait(canvas, pot) {
     }
   }
 
+  if (isDead) ctx.restore();
+
   ctx.fillStyle = "#3A322A";
   ctx.font = "600 " + Math.round(W * 0.05) + "px 'Gowun Batang', serif";
   ctx.textAlign = "center";
-  const label = planted ? `${pot.name || def.name} · ${stage.label}` : "빈 화분";
+  const label = planted ? `${pot.name || def.name} · ${isDead ? "시듦 🥀" : stage.label}` : "빈 화분";
   ctx.fillText(label, W / 2, H * 0.9);
 
   ctx.fillStyle = "rgba(58,50,42,0.45)";
@@ -2281,7 +2346,6 @@ function drawPotPortrait(canvas, pot) {
 /* 화분 확대 화면 열기: 식물이 심어진 화분을 탭했을 때 이 화면이 열리며
    여기서 물주기/비료/수확/번식/사진찍기/제거를 모두 처리합니다. */
 function openPotZoom(pot) {
-  if (!pot.plantId) { openPlantSelectSheet(pot); return; }
   const def = getPlantDef(pot.plantId);
   const stage = getStageInfo(pot);
   const care = computeCareStatus(pot);
@@ -2293,7 +2357,7 @@ function openPotZoom(pot) {
 
   potZoomInfo.innerHTML = `
     <h3>${def.icon} ${pot.name || def.name}</h3>
-    <p class="care-stage">${stage.label} · 성장률 ${pct}%</p>
+    <p class="care-stage">${care.isDead ? "시듦 🥀" : `${stage.label} · 성장률 ${pct}%`}</p>
     <div class="care-bars">
       <div class="care-bar"><span>건강도</span><div class="bar-track"><div class="bar-fill health" style="width:${Math.round(care.health)}%"></div></div></div>
       <div class="care-bar"><span>수분</span><div class="bar-track"><div class="bar-fill water" style="width:${Math.round(care.waterLevel)}%"></div></div></div>
@@ -2307,7 +2371,9 @@ function openPotZoom(pot) {
       마지막 물 준 지 ${Math.max(0, Math.floor(care.daysSinceWater))}일 지났어요 · 권장 주기 ${def.waterIntervalDays}일마다
     </p>`;
 
-  potZoomActions.innerHTML = `
+  potZoomActions.innerHTML = care.isDead ? `
+    <p class="care-stage" style="margin:0 0 10px; color:var(--ink-faint);">시든 화분은 되돌릴 수 없어요. 제거한 뒤 새 화분을 놓아주세요.</p>
+    <button class="zoom-btn text-danger" id="btnZoomRemove">🗑️ 화분 제거</button>` : `
     <button class="zoom-btn camera" id="btnZoomPhoto">📸 사진 찍기</button>
     ${canHarvest(pot) ? `<button class="zoom-btn harvest" id="btnZoomHarvest">${def.fruitIcon} 수확하기</button>` : ""}
     ${canBreedNow(pot) ? `<button class="zoom-btn harvest" id="btnZoomBreed">🌱 번식하기</button>` : ""}
@@ -2316,16 +2382,19 @@ function openPotZoom(pot) {
     ${loadInventory().fertilizer > 0 ? `<button class="zoom-btn ghost" id="btnZoomFertilize">🌿 비료 사용 (보유 ${loadInventory().fertilizer}개)</button>` : ""}
     <button class="zoom-btn text-danger" id="btnZoomRemove">🗑️ 화분 제거</button>`;
 
-  document.getElementById("btnZoomPhoto").addEventListener("click", () => capturePotPhoto(pot));
-  document.getElementById("btnZoomWater").addEventListener("click", () => waterPot(pot));
-  document.getElementById("btnZoomGuide").addEventListener("click", () => openPlantGuideSheet(def));
+  const zPhoto = document.getElementById("btnZoomPhoto");
+  if (zPhoto) zPhoto.addEventListener("click", () => capturePotPhoto(pot));
+  const zGuide = document.getElementById("btnZoomGuide");
+  if (zGuide) zGuide.addEventListener("click", () => openPlantGuideSheet(def));
+  document.getElementById("btnZoomRemove").addEventListener("click", () => openRemovePotConfirm(pot));
+  const zWater = document.getElementById("btnZoomWater");
+  if (zWater) zWater.addEventListener("click", () => waterPot(pot));
   const zFert = document.getElementById("btnZoomFertilize");
   if (zFert) zFert.addEventListener("click", () => useFertilizer(pot));
   const zHarvest = document.getElementById("btnZoomHarvest");
   if (zHarvest) zHarvest.addEventListener("click", () => { closeSheet(); openHarvestChoiceSheet(pot); });
   const zBreed = document.getElementById("btnZoomBreed");
   if (zBreed) zBreed.addEventListener("click", () => breedPlant(pot));
-  document.getElementById("btnZoomRemove").addEventListener("click", () => openRemovePotConfirm(pot));
 }
 
 function closePotZoom() {
@@ -2517,9 +2586,8 @@ function findFreeTierSlotX(tier, zoneRect) {
    놓는 즉시 씨앗 단계부터 성장이 시작됩니다.
    --------------------------------------------------------- */
 document.getElementById("dockAddPot").addEventListener("click", () => {
-  const inv = loadInventory();
-  if (pots.length >= inv.potSlots) {
-    showToast("화분 자리가 가득 찼어요. 상점에서 자리를 늘려보세요 🪴");
+  if (pots.length >= MAX_POT_SLOTS) {
+    showToast(`화분 자리가 가득 찼어요 (최대 ${MAX_POT_SLOTS}개)`);
     return;
   }
   openSeedPotPlaceSheet();
@@ -2557,8 +2625,8 @@ function openSeedPotPlaceSheet() {
 function placeSeedPot(plantId) {
   const inv = loadInventory();
   if (!inv.seedPots[plantId] || inv.seedPots[plantId] <= 0) { showToast("씨앗 화분이 없어요"); return; }
-  if (pots.length >= inv.potSlots) {
-    showToast("화분 자리가 가득 찼어요. 상점에서 자리를 늘려보세요 🪴");
+  if (pots.length >= MAX_POT_SLOTS) {
+    showToast(`화분 자리가 가득 찼어요 (최대 ${MAX_POT_SLOTS}개)`);
     closeSheet();
     return;
   }
@@ -2604,14 +2672,13 @@ function placeSeedPot(plantId) {
    7. 화분 클릭 시 안내 시트 (심기 기능은 다음 단계)
    --------------------------------------------------------- */
 function openPotSheet(pot) {
-  if (!pot.plantId) openPlantSelectSheet(pot);
-  else openPotZoom(pot);
+  openPotZoom(pot);
 }
 
 function plantCardHtml(def, owned) {
   return `
     <button class="plant-card" data-plant="${def.id}">
-      <span class="pc-icon">${def.icon}</span>
+      ${getShopThumbHtml(def, { small: true })}
       <span class="pc-name">${def.name} <small>(${owned}개)</small></span>
       <span class="pc-meta">
         광량 ${def.lightMin}~${def.lightMax}% · 습도 ${def.humidityMin}~${def.humidityMax}%<br/>
@@ -2658,39 +2725,6 @@ function openPlantGuideSheet(def, opts) {
   }
 }
 
-function openPlantSelectSheet(pot) {
-  const inv = loadInventory();
-  const ownedSeeds = Object.values(PLANT_CATALOG).filter((def) => (inv.seedPots[def.id] || 0) > 0);
-  sheetBody.dataset.kind = "plant-select";
-
-  if (ownedSeeds.length === 0) {
-    sheetBody.innerHTML = `
-      <h3>씨앗 화분이 없어요</h3>
-      <p>상점에서 씨앗이 담긴 화분을 구매하면 이 화분에 심을 수 있어요.</p>
-      <button class="sheet-btn" id="btnGoShop">🛍️ 상점으로 가기</button>
-      <button class="sheet-btn ghost-btn" id="sheetClose">나중에 할게요</button>
-      <button class="sheet-btn text-danger" id="btnRemovePot">🗑️ 화분 제거</button>`;
-    sheetBackdrop.classList.add("show");
-    document.getElementById("sheetClose").addEventListener("click", closeSheet);
-    document.getElementById("btnGoShop").addEventListener("click", () => { closeSheet(); openShop(); renderShopCategory("seeds"); });
-    document.getElementById("btnRemovePot").addEventListener("click", () => openRemovePotConfirm(pot));
-    return;
-  }
-
-  sheetBody.innerHTML = `
-    <h3>어떤 씨앗 화분을 심을까요?</h3>
-    <p style="margin:-4px 0 4px; font-size:12.5px; color:var(--ink-faint);">보유한 씨앗 화분만 심을 수 있어요.</p>
-    <div class="plant-grid">${ownedSeeds.map((def) => plantCardHtml(def, inv.seedPots[def.id])).join("")}</div>
-    <button class="sheet-btn ghost-btn" id="sheetClose">나중에 할게요</button>
-    <button class="sheet-btn text-danger" id="btnRemovePot">🗑️ 화분 제거</button>`;
-  sheetBackdrop.classList.add("show");
-  document.getElementById("sheetClose").addEventListener("click", closeSheet);
-  document.getElementById("btnRemovePot").addEventListener("click", () => openRemovePotConfirm(pot));
-  sheetBody.querySelectorAll(".plant-card").forEach((btn) => {
-    btn.addEventListener("click", () => plantSeed(pot, btn.dataset.plant));
-  });
-}
-
 /* ---------------------------------------------------------
    7-0. 화분 제거 시 씨앗값 환급
    성체가 되기 전이라도 화분을 치우면 자란 단계에 비례해서 씨앗 금액의
@@ -2703,6 +2737,7 @@ function getRemoveRefundPercent(stageIndex) {
 }
 function getRemoveRefund(pot) {
   if (!pot.plantId) return 0;
+  if (pot.dead) return 0; // 시든 식물은 환급 없음
   const def = getPlantDef(pot.plantId);
   if (!def) return 0;
   const pct = getRemoveRefundPercent(getStageInfo(pot).index);
@@ -2724,6 +2759,7 @@ function openRemovePotConfirm(pot) {
     <p style="font-size:13px; color:var(--ink-faint);">
       ${planted ? `${pot.name || def.name}${def ? ` ${def.icon}` : ""}의 성장 정보가 함께 사라지고, 되돌릴 수 없어요.` : "빈 화분이 카페에서 치워져요."}
     </p>
+    ${pot.dead ? `<p style="font-size:13px; color:var(--ink-faint);">🥀 시들어버린 식물이라 코인은 돌려받을 수 없어요.</p>` : ""}
     ${refund > 0 ? `<p style="font-size:13px; color:var(--leaf);">🪙 자란 만큼 씨앗값의 일부, ${refund}코인을 돌려받아요.</p>` : ""}
     <button class="sheet-btn danger" id="btnConfirmRemove">🗑️ 네, 치울게요</button>
     <button class="sheet-btn ghost-btn" id="btnCancelRemove">취소</button>`;
