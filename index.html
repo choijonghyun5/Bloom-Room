@@ -277,5 +277,18 @@ html : ${document.documentElement.getBoundingClientRect().height}`);
 alert("standalone = " + navigator.standalone);
 </script>
 
+<script>
+window.onload = () => {
+  const dock = document.querySelector(".dock");
+
+  alert(
+`window=${window.innerHeight}
+app=${document.querySelector(".app").getBoundingClientRect().height}
+dockTop=${dock.getBoundingClientRect().top}
+dockBottom=${dock.getBoundingClientRect().bottom}
+dockHeight=${dock.getBoundingClientRect().height}`);
+};
+</script>
+
 </body>
 </html>
