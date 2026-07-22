@@ -66,25 +66,31 @@ button{ font-family: inherit; border:none; background:none; cursor:pointer; }
 
 .app{
   /*
-    화면을 항상 꽉 채우고(가로 100vw, 세로 100dvh), 사진은
-    background-size: cover로 꽉 채워 넣습니다.
-    day.png 비율(852:1846 ≈ 0.4615)이 실제 스마트폰 화면 비율과
-    거의 동일하기 때문에 cover로 채워도 잘리는 영역은 사실상 없고,
-    Safari 주소창이 나타났다 사라졌다 하면서 100dvh 값이 흔들려도
-    (이전처럼 가로 폭까지 같이 줄어드는 일 없이) 항상 화면을
-    빈틈없이 채웁니다.
+    사진을 절대 자르지 않으면서(crop 없이) 화면을 최대한 채우려면
+    .app 박스의 가로세로 비율이 사진(day.png = 852 × 1846,
+    비율 약 0.4615)과 정확히 같아야 합니다. 그래서 아래 두 줄로
+    "화면에 들어가는 한도 내에서, 사진 비율 그대로 최대 크기"를
+    계산합니다. (홈 화면에 추가해 standalone으로 실행하면 주소창이
+    없어서 100dvh 값이 흔들리지 않으므로 이 계산이 안정적으로
+    동작합니다.)
+
+    화면 비율이 사진 비율과 정확히 일치하는 기기(최근 아이폰 대부분)
+    에서는 여백이 전혀 안 보이고, 비율이 많이 다른 기기(예: 구형
+    iPhone SE처럼 화면이 더 정사각형에 가까운 경우)에서는 사진을
+    자르지 않는 대신 위아래에 얇은 여백이 생길 수 있습니다 —
+    "안 자르기"와 "여백 0"은 비율이 다른 화면에서는 물리적으로
+    동시에 만족할 수 없기 때문입니다.
   */
-  width: 100%;
-  max-width: 560px;
-  height: 100vh;
-  height: 100dvh;
+  --img-ratio: 0.461538; /* 852 / 1846 */
+  width: min(100vw, calc(100dvh * var(--img-ratio)), 560px);
+  height: min(100dvh, calc(100vw / var(--img-ratio)), calc(560px / var(--img-ratio)));
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   margin: 0 auto;
   position: relative;
   background-image: url("assets/day.png");
-  background-size: cover;
+  background-size: 100% 100%;
   background-repeat: no-repeat;
   background-position: center top;
   background-color: var(--cream);
