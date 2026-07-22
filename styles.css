@@ -81,8 +81,8 @@ button{ font-family: inherit; border:none; background:none; cursor:pointer; }
     "안 자르기"와 "여백 0"은 비율이 다른 화면에서는 물리적으로
     동시에 만족할 수 없기 때문입니다.
   */
-  width: 100vw;
-  height: 100dvh;
+  width: auto;
+  height: auto;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -94,7 +94,7 @@ button{ font-family: inherit; border:none; background:none; cursor:pointer; }
   background-repeat: no-repeat;
   background-position: center top;
   background-color: var(--cream);
-  background: red !important;
+
 }
 
 /* ===================== 유리(글래스) 공통 스타일 ===================== */
