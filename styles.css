@@ -689,7 +689,9 @@ button.topbar-cell:active{ opacity: 0.7; }
 .fab:active{ transform: scale(0.94); }
 .fab-icon{ font-size: 17px; line-height: 1; }
 
-/* --- 토스트 --- */
+/* --- 토스트 ---
+   ✏️ 상점/화분 확대/믹서 등 오버레이들의 z-index가 최대 90까지 있어서,
+   그 위에 항상 보이도록 토스트만 더 높은 z-index(100)를 줍니다. */
 .toast{
   position:absolute; left:50%; bottom: 84px;
   transform: translate(-50%, 12px);
@@ -701,7 +703,7 @@ button.topbar-cell:active{ opacity: 0.7; }
   opacity: 0;
   pointer-events: none;
   transition: all 0.35s ease;
-  z-index: 30;
+  z-index: 100;
   max-width: 80%;
   text-align: center;
 }
@@ -1100,6 +1102,8 @@ button.topbar-cell:active{ opacity: 0.7; }
 }
 .env-stat-label{ font-size: 11px; color: var(--ink-faint); margin-bottom: 4px; }
 .env-stat-value{ font-size: 17px; font-weight: 700; color: var(--wood-deep); }
+.guide-grid-3{ grid-template-columns: repeat(3, 1fr); }
+.guide-value-sm{ font-size: 14px; }
 .env-alert{
   display:flex; gap:8px; align-items:flex-start;
   background: var(--cream);
@@ -1354,6 +1358,8 @@ button.topbar-cell:active{ opacity: 0.7; }
   padding: 12px;
   box-shadow: var(--shadow-soft);
 }
+.shop-card[data-guide]{ cursor: pointer; }
+.shop-card[data-guide]:active{ transform: scale(0.97); }
 .sc-icon{ font-size: 24px; }
 .sc-name{ font-family: var(--font-display); font-size: 13.5px; color: var(--wood-deep); }
 .sc-meta{ font-size: 11px; color: var(--ink-faint); line-height: 1.5; min-height: 28px; }

@@ -1186,7 +1186,7 @@ function getPlantDef(plantId) { return PLANT_CATALOG[plantId] || null; }
 const SHELF_TIERS_DESKTOP = {
   top:    { key: "top",    label: "위 선반",   y: 0.53, xMin: 0.46, xMax: 0.75 },
   middle: { key: "middle", label: "중간 선반", y: 0.623, xMin: 0.2, xMax: 0.8 },
-  bottom: { key: "bottom", label: "아래 선반", y: 0.86, xMin: 0.2, xMax: 0.8 },
+  bottom: { key: "bottom", label: "아래 선반", y: 0.87, xMin: 0.2, xMax: 0.8 },
 };
 
 /* 모바일(좁은 창, 세로로 긴 화면)에서 쓰는 선반 높이.
@@ -1783,7 +1783,7 @@ function renderShopCategory(cat) {
       <div class="seed-cat-filters">${SEED_CATEGORIES.map((c) => `
         <button class="seed-cat-chip${c === activeSeedCat ? " is-active" : ""}" data-seedcat="${c}">${c}</button>`).join("")}</div>
       <div class="shop-grid">${filtered.map((def) => `
-      <div class="shop-card">
+      <div class="shop-card" data-guide="${def.id}">
         <span class="sc-icon">${def.icon}</span>
         <span class="sc-name">${def.name} 화분</span>
         <span class="sc-meta">보유 ${inv.seedPots[def.id] || 0}개 · 난이도 ${def.difficulty}</span>
@@ -1818,8 +1818,18 @@ function renderShopCategory(cat) {
     });
   }
 
+  if (cat === "seeds") {
+    scroll.querySelectorAll("[data-guide]").forEach((card) => {
+      card.addEventListener("click", () => {
+        const def = getPlantDef(card.dataset.guide);
+        if (def) openPlantGuideSheet(def);
+      });
+    });
+  }
+
   scroll.querySelectorAll("[data-buy]").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
       const kind = btn.dataset.buy;
       if (kind === "seedPot") buySeedPot(btn.dataset.id);
       else if (kind === "fertilizer") buyFertilizer();
@@ -2254,11 +2264,13 @@ function openPotZoom(pot) {
     ${canHarvest(pot) ? `<button class="zoom-btn harvest" id="btnZoomHarvest">${def.fruitIcon} 수확하기</button>` : ""}
     ${canBreedNow(pot) ? `<button class="zoom-btn harvest" id="btnZoomBreed">🌱 번식하기</button>` : ""}
     <button class="zoom-btn" id="btnZoomWater">💧 물 주기</button>
+    <button class="zoom-btn ghost" id="btnZoomGuide">📖 키우는 방법</button>
     ${loadInventory().fertilizer > 0 ? `<button class="zoom-btn ghost" id="btnZoomFertilize">🌿 비료 사용 (보유 ${loadInventory().fertilizer}개)</button>` : ""}
     <button class="zoom-btn text-danger" id="btnZoomRemove">🗑️ 화분 제거</button>`;
 
   document.getElementById("btnZoomPhoto").addEventListener("click", () => capturePotPhoto(pot));
   document.getElementById("btnZoomWater").addEventListener("click", () => waterPot(pot));
+  document.getElementById("btnZoomGuide").addEventListener("click", () => openPlantGuideSheet(def));
   const zFert = document.getElementById("btnZoomFertilize");
   if (zFert) zFert.addEventListener("click", () => useFertilizer(pot));
   const zHarvest = document.getElementById("btnZoomHarvest");
@@ -2557,6 +2569,45 @@ function plantCardHtml(def, owned) {
         광량 ${def.lightMin}~${def.lightMax}% · 습도 ${def.humidityMin}~${def.humidityMax}%<br/>
         물주기 ${def.waterIntervalDays}일마다</span>
     </button>`;
+}
+
+/* ---------------------------------------------------------
+   6-1. 식물 "키우는 방법" 안내 시트
+   상점에서 화분 카드를 누르거나, 이미 심어진 화분을 눌렀을 때
+   물주기 주기 · 좋아하는 햇빛/습도 범위를 한눈에 보여줍니다.
+   --------------------------------------------------------- */
+function plantGuideTip(def) {
+  const tips = [];
+  if (def.lightMin >= 65) tips.push("햇빛을 많이 좋아해요 — 창가나 조명을 켠 자리에 두세요.");
+  else if (def.lightMax <= 70) tips.push("강한 직사광선보다는 은은한 빛을 더 좋아해요.");
+  else tips.push("적당한 빛만 있어도 무난하게 잘 자라요.");
+
+  if (def.humidityMin >= 55) tips.push("습도를 좋아하는 편이라 가습기를 함께 켜두면 좋아요.");
+  else if (def.humidityMax <= 55) tips.push("건조한 환경에서도 잘 견디는 편이에요.");
+
+  return tips.join(" ");
+}
+
+function openPlantGuideSheet(def, opts) {
+  opts = opts || {};
+  sheetBody.dataset.kind = "plant-guide";
+  sheetBody.innerHTML = `
+    <h3>${def.icon} ${def.name} 키우는 방법</h3>
+    <p style="margin:-4px 0 10px; font-size:12.5px; color:var(--ink-faint);">${def.category} · 난이도 ${def.difficulty}</p>
+    <div class="env-grid guide-grid-3">
+      <div class="env-stat"><div class="env-stat-label">💧 물주기</div><div class="env-stat-value guide-value-sm">${def.waterIntervalDays}일마다</div></div>
+      <div class="env-stat"><div class="env-stat-label">🔆 햇빛</div><div class="env-stat-value guide-value-sm">${def.lightMin}~${def.lightMax}%</div></div>
+      <div class="env-stat"><div class="env-stat-label">💦 습도</div><div class="env-stat-value guide-value-sm">${def.humidityMin}~${def.humidityMax}%</div></div>
+    </div>
+    <div class="env-alert">🌿 <div>${plantGuideTip(def)}</div></div>
+    ${opts.footerHtml || ""}
+    <button class="sheet-btn ghost-btn" id="sheetClose">닫기</button>`;
+  sheetBackdrop.classList.add("show");
+  document.getElementById("sheetClose").addEventListener("click", closeSheet);
+  if (opts.onClose) {
+    const prevClose = document.getElementById("sheetClose");
+    prevClose.addEventListener("click", opts.onClose, { once: true });
+  }
 }
 
 function openPlantSelectSheet(pot) {
