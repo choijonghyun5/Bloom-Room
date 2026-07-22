@@ -97,6 +97,17 @@ button{ font-family: inherit; border:none; background:none; cursor:pointer; }
 
 }
 
+.app::after{
+    content:"";
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:0;
+    height:40px;
+    background:red;
+    z-index:99999;
+}
+
 /* ===================== 유리(글래스) 공통 스타일 ===================== */
 /* 상단/하단 UI가 사진 배경 위에 반투명하게 떠 보이도록 하는 공용 톤 */
 :root{
