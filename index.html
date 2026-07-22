@@ -161,7 +161,16 @@
       <button class="preset-btn" data-min="50">50분</button>
       <button class="preset-btn" data-min="custom">직접 입력</button>
     </div>
-    <input type="number" id="customMinutes" class="custom-minutes-input" placeholder="분 단위로 입력" min="1" max="180" />
+    <div class="custom-time-input" id="customTimeInput">
+      <label class="custom-time-field">
+        <input type="number" id="customHours" min="0" max="3" placeholder="0" inputmode="numeric" />
+        <span>시간</span>
+      </label>
+      <label class="custom-time-field">
+        <input type="number" id="customMinutes" min="0" max="59" placeholder="25" inputmode="numeric" />
+        <span>분</span>
+      </label>
+    </div>
 
     <div class="focus-controls">
       <button class="focus-btn ghost" id="btnFocusStop" hidden>그만하기</button>

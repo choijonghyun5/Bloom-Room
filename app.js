@@ -272,11 +272,12 @@ async function refreshWeather() {
     return;
   }
   try {
-    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current_weather=true`);
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}&current=temperature_2m,relative_humidity_2m,weather_code`);
     const data = await res.json();
-    const label = mapWeatherCode(data.current_weather.weathercode);
-    const temp = Math.round(data.current_weather.temperature);
-    saveWeather({ label, temp, updatedAt: Date.now() });
+    const label = mapWeatherCode(data.current.weather_code);
+    const temp = Math.round(data.current.temperature_2m);
+    const humidity = Math.round(data.current.relative_humidity_2m);
+    saveWeather({ label, temp, humidity, updatedAt: Date.now() });
     applyWeatherVisual(label, temp);
   } catch (e) {
     applyWeatherVisual("맑음");
@@ -375,7 +376,13 @@ function computeEnvironment() {
   light += DEVICE_RAMP_CONFIG.light.delta * lightRatio;
   light = clamp(light, 0, 100);
 
-  let humidity = season.humidityBase + weatherMeta.humidityDelta;
+  let humidity;
+  const w = loadWeather();
+  if (w && typeof w.humidity === "number") {
+    humidity = w.humidity; // 실시간으로 받아온 실제 상대습도
+  } else {
+    humidity = season.humidityBase + weatherMeta.humidityDelta; // 실제 값이 아직 없을 때만 계절/날씨 기반 추정치 사용
+  }
   humidity += DEVICE_RAMP_CONFIG.humidifier.delta * humidifierRatio;
   humidity += DEVICE_RAMP_CONFIG.dehumidifier.delta * dehumidifierRatio;
   humidity = clamp(humidity, 0, 100);
@@ -431,6 +438,7 @@ function toggleLightDevice() {
   const now = Date.now();
   toggleDeviceCommon(env, "light", now);
   saveCafeEnv(env);
+  SoundEngine.playTick(env.lightOn);
   applyTimeOfDay();
   updateDeviceVisuals();
   renderEnvPanelIfOpen();
@@ -443,6 +451,7 @@ function toggleHumidifierDevice() {
     toggleDeviceCommon(env, "dehumidifier", now); // 제습기는 서서히 꺼짐
   }
   saveCafeEnv(env);
+  SoundEngine.playTick(env.humidifierOn);
   updateDeviceVisuals();
   renderEnvPanelIfOpen();
 }
@@ -454,6 +463,7 @@ function toggleDehumidifierDevice() {
     toggleDeviceCommon(env, "humidifier", now); // 가습기는 서서히 꺼짐
   }
   saveCafeEnv(env);
+  SoundEngine.playTick(env.dehumidifierOn);
   updateDeviceVisuals();
   renderEnvPanelIfOpen();
 }
@@ -599,7 +609,7 @@ function openEnvPanel() {
 }
 
 refreshWeather();
-setInterval(refreshWeather, 30 * 60 * 1000); // 30분마다 갱신
+setInterval(refreshWeather, 10 * 60 * 1000); // 10분마다 갱신
 
 /* ---------------------------------------------------------
    2. 창가 먼지 입자 생성
@@ -702,6 +712,8 @@ const ringProgress = document.getElementById("ringProgress");
 const btnFocusStart = document.getElementById("btnFocusStart");
 const btnFocusPause = document.getElementById("btnFocusPause");
 const btnFocusStop = document.getElementById("btnFocusStop");
+const customTimeInput = document.getElementById("customTimeInput");
+const customHoursInput = document.getElementById("customHours");
 const customMinutesInput = document.getElementById("customMinutes");
 const focusHint = document.getElementById("focusHint");
 
@@ -756,6 +768,7 @@ function updateFocusUI() {
     : "원하는 시간을 고르고 집중을 시작해보세요";
 
   document.querySelectorAll(".preset-btn").forEach(b => b.disabled = isRunning || isPaused);
+  customHoursInput.disabled = isRunning || isPaused;
   customMinutesInput.disabled = isRunning || isPaused;
 
   if (isRunning && elapsed >= focusState.targetSeconds) {
@@ -783,24 +796,26 @@ document.querySelectorAll(".preset-btn").forEach(btn => {
     document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("is-selected"));
     btn.classList.add("is-selected");
     if (btn.dataset.min === "custom") {
-      customMinutesInput.classList.add("show");
+      customTimeInput.classList.add("show");
       customMinutesInput.focus();
     } else {
-      customMinutesInput.classList.remove("show");
+      customTimeInput.classList.remove("show");
       focusState.targetSeconds = parseInt(btn.dataset.min, 10) * 60;
       persistFocus();
       updateFocusUI();
     }
   });
 });
-customMinutesInput.addEventListener("input", () => {
-  const mins = clamp(parseInt(customMinutesInput.value || "0", 10), 1, 180);
-  if (mins) {
-    focusState.targetSeconds = mins * 60;
-    persistFocus();
-    updateFocusUI();
-  }
-});
+function applyCustomTimeInputs() {
+  const hours = clamp(parseInt(customHoursInput.value || "0", 10), 0, 3);
+  const mins = clamp(parseInt(customMinutesInput.value || "0", 10), 0, 59);
+  const totalMins = clamp(hours * 60 + mins, 1, 180);
+  focusState.targetSeconds = totalMins * 60;
+  persistFocus();
+  updateFocusUI();
+}
+customHoursInput.addEventListener("input", applyCustomTimeInputs);
+customMinutesInput.addEventListener("input", applyCustomTimeInputs);
 
 btnFocusStart.addEventListener("click", () => {
   focusState.status = "running";
@@ -876,9 +891,14 @@ function completeFocus(elapsedSeconds, isEarlyStop) {
 
 // 새로고침 후에도 진행 중이던 타이머 이어가기
 if (focusState.status === "running" || focusState.status === "paused") {
-  document.getElementById("customMinutes").value =
-    focusState.targetSeconds % 60 === 0 && ![15, 25, 50].includes(focusState.targetSeconds / 60)
-      ? focusState.targetSeconds / 60 : "";
+  const totalMins = focusState.targetSeconds / 60;
+  if (![15, 25, 50].includes(totalMins)) {
+    customHoursInput.value = Math.floor(totalMins / 60) || "";
+    customMinutesInput.value = totalMins % 60;
+    customTimeInput.classList.add("show");
+    document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("is-selected"));
+    document.querySelector('.preset-btn[data-min="custom"]').classList.add("is-selected");
+  }
 }
 
 /* ---------------------------------------------------------
@@ -1232,21 +1252,43 @@ function snapPotToShelf(pot) {
   return pot;
 }
 
-/* 성장 단계 - 11단계 파이프라인 (씨앗 → … → 완전 성장)
+/* ---------------------------------------------------------
+   4-1. 성장 단계 (모든 식물 공통 6단계)
+   씨앗 → 발아 → 새싹 → 어린 식물 → (성체/꽃봉오리/꽃) → (완전한 성체/개화/열매)
+   마지막 두 단계의 라벨과 표시물은 식물 종류에 따라 달라집니다:
+   - 관엽식물(꽃/열매가 없는 식물): 성체 → 완전한 성체
+   - 꽃 피는 식물(hasFlower, 열매 없음): 꽃봉오리 → 개화
+   - 열매 식물(hasFruit): 꽃 → 열매
    pct 는 해당 식물의 totalNeeded 대비 누적 성장치 비율 기준입니다. */
 const STAGES = [
-  { key: "seed",       label: "씨앗",         pct: 0  },
-  { key: "germinate",  label: "발아",         pct: 6  },
-  { key: "sprout",     label: "새싹",         pct: 14 },
-  { key: "stem",       label: "줄기 성장",     pct: 24 },
-  { key: "leaf",       label: "잎 생성",       pct: 36 },
-  { key: "leafGrow",   label: "잎이 커짐",     pct: 50 },
-  { key: "stemThick",  label: "줄기가 굵어짐", pct: 64 },
-  { key: "branch",     label: "가지 생성",     pct: 76 },
-  { key: "bud",        label: "꽃봉오리",      pct: 86 },
-  { key: "bloom",      label: "개화",         pct: 95 },
-  { key: "mature",     label: "완전 성장",     pct: 100 },
+  { key: "seed",      label: "씨앗",     pct: 0  },
+  { key: "germinate", label: "발아",     pct: 15 },
+  { key: "sprout",    label: "새싹",     pct: 35 },
+  { key: "young",     label: "어린 식물", pct: 55 },
+  { key: "mature1",   label: "성체",     pct: 80 },
+  { key: "mature2",   label: "완전한 성체", pct: 100 },
 ];
+
+/* 식물을 성체 단계 표시 방식에 따라 세 종류로 분류합니다. */
+function getPlantCategoryType(def) {
+  if (def.hasFruit) return "fruit";
+  if (def.hasFlower) return "flower";
+  return "foliage";
+}
+
+/* 마지막 두 단계(index 4, 5)는 식물 종류에 따라 라벨이 달라집니다. */
+function getStageLabel(def, index) {
+  if (index < 4) return STAGES[index].label;
+  const type = getPlantCategoryType(def);
+  if (index === 4) {
+    if (type === "fruit") return "꽃";
+    if (type === "flower") return "꽃봉오리";
+    return "성체";
+  }
+  if (type === "fruit") return "열매";
+  if (type === "flower") return "개화";
+  return "완전한 성체";
+}
 
 function getStageInfo(pot) {
   const def = getPlantDef(pot.plantId);
@@ -1256,7 +1298,7 @@ function getStageInfo(pot) {
   for (let i = STAGES.length - 1; i >= 0; i--) {
     if (pct >= STAGES[i].pct) { index = i; break; }
   }
-  const label = (STAGES[index].key === "mature" && def.hasFruit && pct >= 97) ? "열매" : STAGES[index].label;
+  const label = getStageLabel(def, index);
   return { index, label, pct };
 }
 
@@ -1273,14 +1315,14 @@ const PLANT_IMAGE_STAGES = {
   monstera: {
     basePath: "assets/plants/monstera/",
     files: ["step_1.png", "step_2.png", "step_3.png", "step_4.png", "step_5.png", "step_6.png"],
-    // STAGES: 씨앗,발아,새싹,줄기성장,잎생성,잎이커짐,줄기굵어짐,가지생성,꽃봉오리,개화,완전성장
-    stageToImage: [1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6],
+    // STAGES: 씨앗,발아,새싹,어린 식물,성체,완전한 성체 (6단계 = 사진 6장, 1:1 매칭)
+    stageToImage: [1, 2, 3, 4, 5, 6],
   },
   rubbertree: {
     basePath: "assets/plants/rubbertree/",
     files: ["step_1.png", "step_2.png", "step_3.png", "step_4.png", "step_5.png", "step_6.png"],
-    // STAGES: 씨앗,발아,새싹,줄기성장,잎생성,잎이커짐,줄기굵어짐,가지생성,꽃봉오리,개화,완전성장
-    stageToImage: [1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6],
+    // STAGES: 씨앗,발아,새싹,어린 식물,성체,완전한 성체 (6단계 = 사진 6장, 1:1 매칭)
+    stageToImage: [1, 2, 3, 4, 5, 6],
   },
 };
 
@@ -1367,7 +1409,7 @@ const ACHIEVEMENTS = [
   { id: "firstPlant", icon: "🌱", title: "첫 식물", desc: "화분에 씨앗을 처음 심어보세요.",
     check: () => Object.keys(loadDex()).length >= 1 },
   { id: "firstBloom", icon: "🌸", title: "첫 개화", desc: "식물을 꽃봉오리 단계 이상으로 키워보세요.",
-    check: () => Object.values(loadDex()).some((e) => e.bestStageIndex >= 9) },
+    check: () => Object.values(loadDex()).some((e) => e.bestStageIndex >= 4) },
   { id: "firstHarvest", icon: "🍅", title: "완전 성장", desc: "식물 하나를 완전 성장까지 키워보세요.",
     check: () => Object.values(loadDex()).some((e) => (e.matureCount || 0) >= 1) },
   { id: "harvest10", icon: "🧺", title: "작은 수확가", desc: "열매를 10번 수확해보세요.",
@@ -1650,8 +1692,8 @@ function harvestPot(pot) {
   s.totalHarvestCoins = (s.totalHarvestCoins || 0) + payout;
   saveStats(s);
 
-  // 개화 단계(index 9)로 되돌려 다시 열매를 맺도록 재성장 시작
-  const bloomStagePct = STAGES[9].pct;
+  // 개화(꽃) 단계(index 4)로 되돌려 다시 열매를 맺도록 재성장 시작
+  const bloomStagePct = STAGES[4].pct;
   pot.growthUnits = Math.round(def.totalNeeded * (bloomStagePct / 100));
   savePots(pots);
   renderPots();
@@ -1709,8 +1751,8 @@ function breedPlant(pot) {
   s.totalBreedSeeds = (s.totalBreedSeeds || 0) + 2;
   saveStats(s);
 
-  // 개화(혹은 그에 준하는) 단계로 되돌려 다시 완전 성장까지 자랄 수 있게 함
-  const bloomStagePct = STAGES[9].pct;
+  // 개화(혹은 그에 준하는) 단계(index 4)로 되돌려 다시 완전 성장까지 자랄 수 있게 함
+  const bloomStagePct = STAGES[4].pct;
   pot.growthUnits = Math.round(def.totalNeeded * (bloomStagePct / 100));
   savePots(pots);
   renderPots();
@@ -1868,7 +1910,7 @@ function renderDex() {
           <span class="dex-meta">아직 심어보지 않았어요</span>
         </div>`;
     }
-    const stageLabel = STAGES[entry.bestStageIndex].label;
+    const stageLabel = getStageLabel(def, entry.bestStageIndex);
     const stagePct = Math.round((entry.bestStageIndex / (STAGES.length - 1)) * 100);
     return `
       <div class="dex-card">
@@ -2003,17 +2045,18 @@ function renderPlantVisual(def, stage, pot) {
   if (stage.index === 0) {
     return `<div class="plant" style="--stage:0"><div class="seed-dot"></div></div>`;
   }
-  const leafCount = Math.min(5, 1 + Math.floor(stage.index / 2));
+  const leafCount = Math.min(5, 1 + stage.index);
   let leaves = "";
   for (let i = 0; i < leafCount; i++) leaves += `<div class="leaf"></div>`;
 
+  // 마지막 두 단계(4, 5)에서 식물 종류에 따라 꽃봉오리/꽃/열매를 표시
   let bloom = "";
-  if (def.hasFruit && stage.index >= 10) {
-    bloom = `<div class="bloom">${def.fruitIcon || "🍅"}</div>`;
-  } else if (def.hasFlower && stage.index >= 9) {
-    bloom = `<div class="bloom">${def.bloomIcon || "🌸"}</div>`;
-  } else if (def.hasFlower && stage.index === 8) {
-    bloom = `<div class="bloom bud"></div>`;
+  if (stage.index >= 5) {
+    if (def.hasFruit) bloom = `<div class="bloom">${def.fruitIcon || "🍅"}</div>`;
+    else if (def.hasFlower) bloom = `<div class="bloom">${def.bloomIcon || "🌸"}</div>`;
+  } else if (stage.index === 4) {
+    if (def.hasFruit) bloom = `<div class="bloom">${def.bloomIcon || "🌸"}</div>`; // 꽃 단계 (열매 맺기 전)
+    else if (def.hasFlower) bloom = `<div class="bloom bud"></div>`; // 꽃봉오리 단계
   }
   return `<div class="plant" style="--stage:${stage.index}">${leaves}${bloom}</div>`;
 }
@@ -2107,9 +2150,9 @@ function drawPlantOnCanvas(ctx, cx, baseY, stage, def) {
     ctx.fill();
     return baseY - 12;
   }
-  const leafCount = Math.min(5, 1 + Math.floor(stage.index / 2));
-  const leafW = 9 + stage.index * 3.4;
-  const leafH = 13 + stage.index * 4.6;
+  const leafCount = Math.min(5, 1 + stage.index);
+  const leafW = 9 + stage.index * 6.8;
+  const leafH = 13 + stage.index * 9.2;
   const offsets = [0, -14, 14, -26, 26];
 
   for (let i = 0; i < leafCount; i++) {
@@ -2125,15 +2168,20 @@ function drawPlantOnCanvas(ctx, cx, baseY, stage, def) {
   }
 
   const topY = baseY - leafH;
-  if (def.hasFruit && stage.index >= 10) {
-    ctx.font = (16 + stage.index * 2.4) + "px sans-serif";
+  // 마지막 두 단계(4, 5)에서 식물 종류에 따라 꽃봉오리/꽃/열매를 표시
+  if (stage.index >= 5 && def.hasFruit) {
+    ctx.font = (16 + stage.index * 4.8) + "px sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(def.fruitIcon || "🍅", cx, topY - 4);
-  } else if (def.hasFlower && stage.index >= 9) {
-    ctx.font = (16 + stage.index * 2.4) + "px sans-serif";
+  } else if (stage.index >= 5 && def.hasFlower) {
+    ctx.font = (16 + stage.index * 4.8) + "px sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(def.bloomIcon || "🌸", cx, topY - 4);
-  } else if (def.hasFlower && stage.index === 8) {
+  } else if (stage.index === 4 && def.hasFruit) {
+    ctx.font = (16 + stage.index * 4.8) + "px sans-serif"; // 꽃 단계 (열매 맺기 전)
+    ctx.textAlign = "center";
+    ctx.fillText(def.bloomIcon || "🌸", cx, topY - 4);
+  } else if (stage.index === 4 && def.hasFlower) {
     ctx.fillStyle = "#C97B4A";
     ctx.beginPath();
     ctx.arc(cx, topY - 4, 6, 0, Math.PI * 2);
@@ -2644,6 +2692,24 @@ function openPlantSelectSheet(pot) {
 }
 
 /* ---------------------------------------------------------
+   7-0. 화분 제거 시 씨앗값 환급
+   성체가 되기 전이라도 화분을 치우면 자란 단계에 비례해서 씨앗 금액의
+   일부를 코인으로 돌려받습니다. 많이 키운 단계일수록 더 많이 돌려받지만,
+   완전 성장 단계라도 씨앗 원가의 50%를 넘지는 않습니다.
+   --------------------------------------------------------- */
+const REMOVE_REFUND_PCT_BY_STAGE = [5, 8, 12, 16, 20, 24, 28, 32, 36, 40, 45];
+function getRemoveRefundPercent(stageIndex) {
+  return REMOVE_REFUND_PCT_BY_STAGE[clamp(stageIndex, 0, REMOVE_REFUND_PCT_BY_STAGE.length - 1)];
+}
+function getRemoveRefund(pot) {
+  if (!pot.plantId) return 0;
+  const def = getPlantDef(pot.plantId);
+  if (!def) return 0;
+  const pct = getRemoveRefundPercent(getStageInfo(pot).index);
+  return Math.round(def.price * pct / 100);
+}
+
+/* ---------------------------------------------------------
    7-1. 화분 제거
    빈 화분/식물이 자라고 있는 화분 모두 제거할 수 있습니다.
    실수로 지우는 것을 막기 위해 한 번 더 확인하는 시트를 보여줍니다.
@@ -2651,12 +2717,14 @@ function openPlantSelectSheet(pot) {
 function openRemovePotConfirm(pot) {
   const planted = !!pot.plantId;
   const def = planted ? getPlantDef(pot.plantId) : null;
+  const refund = planted ? getRemoveRefund(pot) : 0;
   sheetBody.dataset.kind = "remove-confirm";
   sheetBody.innerHTML = `
     <h3>🗑️ 화분을 치울까요?</h3>
     <p style="font-size:13px; color:var(--ink-faint);">
       ${planted ? `${pot.name || def.name}${def ? ` ${def.icon}` : ""}의 성장 정보가 함께 사라지고, 되돌릴 수 없어요.` : "빈 화분이 카페에서 치워져요."}
     </p>
+    ${refund > 0 ? `<p style="font-size:13px; color:var(--leaf);">🪙 자란 만큼 씨앗값의 일부, ${refund}코인을 돌려받아요.</p>` : ""}
     <button class="sheet-btn danger" id="btnConfirmRemove">🗑️ 네, 치울게요</button>
     <button class="sheet-btn ghost-btn" id="btnCancelRemove">취소</button>`;
   sheetBackdrop.classList.add("show");
@@ -2665,12 +2733,14 @@ function openRemovePotConfirm(pot) {
 }
 
 function removePot(pot) {
+  const refund = getRemoveRefund(pot);
+  if (refund > 0) addCoin(refund);
   pots = pots.filter((p) => p.id !== pot.id);
   savePots(pots);
   renderPots();
   closeSheet();
   if (potZoomOverlay.dataset.potId === pot.id) closePotZoom();
-  showToast("화분을 치웠어요");
+  showToast(refund > 0 ? `화분을 치웠어요 (🪙 +${refund})` : "화분을 치웠어요");
 }
 function closeSheet() { sheetBackdrop.classList.remove("show"); }
 sheetBackdrop.addEventListener("click", (e) => {

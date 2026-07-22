@@ -554,7 +554,7 @@ button.topbar-cell:active{ opacity: 0.7; }
 .plant{
   position: relative;
   display:flex; align-items:flex-end; justify-content:center;
-  height: calc(14px + var(--stage, 0) * 6px);
+  height: calc(14px + var(--stage, 0) * 12px);
   margin-bottom: -4px;
   z-index: 2;
 }
@@ -583,8 +583,8 @@ button.topbar-cell:active{ opacity: 0.7; }
 }
 .plant .leaf{
   position:absolute; bottom:0;
-  width: calc(9px + var(--stage, 0) * 2.2px);
-  height: calc(13px + var(--stage, 0) * 3px);
+  width: calc(9px + var(--stage, 0) * 4.4px);
+  height: calc(13px + var(--stage, 0) * 6px);
   background: var(--leaf);
   border-radius: 60% 60% 60% 0;
   transform-origin: bottom center;
@@ -598,7 +598,7 @@ button.topbar-cell:active{ opacity: 0.7; }
 .plant .leaf:nth-child(5){ left: 14px; animation-delay: -3.5s; }
 .plant .bloom{
   position:absolute; top: -8px; left:50%; transform: translateX(-50%);
-  font-size: calc(11px + var(--stage, 0) * 1.4px);
+  font-size: calc(11px + var(--stage, 0) * 2.8px);
   animation: bloomPop 0.4s ease;
   z-index: 3;
 }
@@ -775,7 +775,7 @@ button.topbar-cell:active{ opacity: 0.7; }
   background: rgba(58, 50, 42, 0.35);
   opacity:0; pointer-events:none;
   transition: opacity 0.25s ease;
-  z-index: 50;
+  z-index: 95; /* 상점/믹서/도감/통계 오버레이(90)보다 위에 떠야 함 */
   display:flex; align-items:flex-end; justify-content:center;
 }
 .sheet-backdrop.show{ opacity:1; pointer-events:auto; }
@@ -826,18 +826,22 @@ button.topbar-cell:active{ opacity: 0.7; }
 /* ===================== 집중(공부) 오버레이 ===================== */
 .focus-overlay{
   position: fixed; inset:0;
-  background: linear-gradient(180deg, #2E3B2A, #1C2419);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(26px) saturate(1.3);
+  -webkit-backdrop-filter: blur(26px) saturate(1.3);
   z-index: 80;
   display:flex; align-items:center; justify-content:center;
   opacity:0; pointer-events:none;
-  transition: opacity 0.35s ease;
+  transition: opacity 0.35s ease, background 0.35s ease;
 }
 .focus-overlay.show{ opacity:1; pointer-events:auto; }
 .focus-close{
   position:absolute; top: max(18px, env(safe-area-inset-top)); right: 18px;
   width: 36px; height: 36px; border-radius: 50%;
-  background: rgba(255,255,255,0.1);
-  color: #EDE6D6; font-size: 15px;
+  background: rgba(255,255,255,0.85);
+  border: 1px solid rgba(58, 50, 42, 0.10);
+  box-shadow: var(--shadow-soft);
+  color: var(--ink-soft); font-size: 15px;
 }
 .focus-content{
   width: 100%; max-width: 380px;
@@ -845,17 +849,17 @@ button.topbar-cell:active{ opacity: 0.7; }
   padding: 0 26px;
 }
 .focus-eyebrow{
-  color: rgba(237,230,214,0.6);
+  color: var(--ink-faint);
   font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
   margin: 0 0 18px;
 }
 .focus-ring-wrap{ position:relative; width: 220px; height: 220px; margin-bottom: 26px; }
 .focus-ring{ width:100%; height:100%; transform: rotate(-90deg); }
 .ring-track{
-  fill:none; stroke: rgba(255,255,255,0.12); stroke-width: 10;
+  fill:none; stroke: rgba(58, 50, 42, 0.08); stroke-width: 10;
 }
 .ring-progress{
-  fill:none; stroke: var(--leaf-light); stroke-width: 10;
+  fill:none; stroke: var(--leaf); stroke-width: 10;
   stroke-linecap: round;
   stroke-dasharray: 565.5;
   stroke-dashoffset: 565.5;
@@ -866,7 +870,7 @@ button.topbar-cell:active{ opacity: 0.7; }
   display:flex; align-items:center; justify-content:center;
   font-family: var(--font-display);
   font-size: 40px;
-  color: #F5EFE4;
+  color: var(--ink);
   font-weight: 700;
   letter-spacing: 1px;
 }
@@ -877,28 +881,46 @@ button.topbar-cell:active{ opacity: 0.7; }
 .preset-btn{
   padding: 8px 14px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.08);
-  color: rgba(237,230,214,0.8);
+  background: rgba(255,255,255,0.75);
+  border: 1px solid rgba(58, 50, 42, 0.10);
+  color: var(--ink-soft);
   font-size: 13px;
 }
 .preset-btn.is-selected{
-  background: var(--leaf-light);
-  color: #1C2419;
+  background: var(--leaf);
+  border-color: var(--leaf);
+  color: #FBF7EF;
   font-weight: 700;
 }
-.custom-minutes-input{
+.custom-time-input{
   display:none;
-  width: 140px;
-  text-align: center;
-  padding: 10px;
-  border-radius: 12px;
-  border: none;
+  gap: 10px;
+  justify-content: center;
   margin-bottom: 14px;
-  background: rgba(255,255,255,0.1);
-  color: #F5EFE4;
-  font-size: 14px;
 }
-.custom-minutes-input.show{ display:block; }
+.custom-time-input.show{ display:flex; }
+.custom-time-field{
+  display:flex; align-items:baseline; gap: 6px;
+  padding: 9px 14px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.8);
+  border: 1px solid rgba(58, 50, 42, 0.10);
+}
+.custom-time-field input{
+  width: 42px;
+  text-align: center;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+.custom-time-field span{
+  font-size: 12.5px;
+  color: var(--ink-faint);
+}
 .focus-controls{
   display:flex; gap: 10px;
   width: 100%;
@@ -911,13 +933,13 @@ button.topbar-cell:active{ opacity: 0.7; }
   font-size: 14px;
   font-weight: 700;
 }
-.focus-btn.primary{ background: var(--leaf-light); color: #1C2419; }
-.focus-btn.ghost{ background: rgba(255,255,255,0.08); color: rgba(237,230,214,0.75); }
+.focus-btn.primary{ background: var(--leaf); color: #FBF7EF; }
+.focus-btn.ghost{ background: rgba(58, 50, 42, 0.06); color: var(--ink-soft); }
 .focus-btn[hidden]{ display:none; }
 .focus-hint{
   margin-top: 18px;
   font-size: 12.5px;
-  color: rgba(237,230,214,0.55);
+  color: var(--ink-faint);
   text-align: center;
   line-height: 1.6;
 }

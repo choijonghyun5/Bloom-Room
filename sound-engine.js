@@ -201,6 +201,55 @@ const SoundEngine = (() => {
     ),
   };
 
+  /* ---- 기기 on/off 등 짧은 UI 피드백용 사운드 (배경음 볼륨과 무관하게 항상 재생)
+     또렷한 '딸깍' 클릭이 아니라, 오래된 전기 기구에 살짝 전류가 흐르는 듯한
+     차분하고 낮은 '치지직' 정전기 질감으로 구성. 짧은 노이즈 크래클을
+     여러 개 흩뿌리고, 그 아래 은은한 저음을 깔아 무게감을 줌. */
+  function playTick(isOn) {
+    ensureContext();
+    const t = ctx.currentTime;
+    const bus = ctx.createGain();
+    bus.gain.value = 1;
+    bus.connect(master);
+
+    // 은은한 저음 바탕 (차분한 무게감, 튀지 않게 천천히 올라왔다 사라짐)
+    const bodyOsc = ctx.createOscillator();
+    bodyOsc.type = "sine";
+    bodyOsc.frequency.value = isOn ? 95 : 72;
+    const bodyGain = ctx.createGain();
+    bodyGain.gain.setValueAtTime(0.0001, t);
+    bodyGain.gain.exponentialRampToValueAtTime(0.22, t + 0.035);
+    bodyGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    bodyOsc.connect(bodyGain);
+    bodyGain.connect(bus);
+    bodyOsc.start(t);
+    bodyOsc.stop(t + 0.32);
+
+    // 치지직 크래클 - 짧은 노이즈 알갱이를 여러 개 흩뿌려 정전기 질감을 만듦
+    const crackleCount = isOn ? 8 : 5;
+    const spread = isOn ? 0.18 : 0.12;
+    for (let i = 0; i < crackleCount; i++) {
+      const offset = t + Math.random() * spread;
+      const src = noiseSource();
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.value = 900 + Math.random() * (isOn ? 2200 : 1300);
+      filter.Q.value = 2 + Math.random() * 2;
+      const g = ctx.createGain();
+      const peak = (isOn ? 0.2 : 0.14) * (0.5 + Math.random() * 0.5);
+      g.gain.setValueAtTime(0.0001, offset);
+      g.gain.exponentialRampToValueAtTime(peak, offset + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, offset + 0.02 + Math.random() * 0.02);
+      src.connect(filter);
+      filter.connect(g);
+      g.connect(bus);
+      src.start(offset);
+      src.stop(offset + 0.05);
+    }
+
+    setTimeout(() => bus.disconnect(), 500);
+  }
+
   function setVolume(id, value01) {
     ensureContext();
     if (!controllers[id] && value01 > 0) {
@@ -223,5 +272,5 @@ const SoundEngine = (() => {
     });
   }
 
-  return { ensureContext, setVolume, stopAll, get ids() { return Object.keys(DEFS); } };
+  return { ensureContext, setVolume, stopAll, playTick, get ids() { return Object.keys(DEFS); } };
 })();
