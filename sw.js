@@ -2,7 +2,7 @@
 // 실제 호스팅 환경(https)에서 등록되면 오프라인 캐싱이 동작합니다.
 // file:// 로 직접 열람 중에는 등록되지 않아도 앱 사용에는 지장이 없습니다.
 
-const CACHE_NAME = "greennote-cache-v11";
+const CACHE_NAME = "greennote-cache-v10";
 const CORE_ASSETS = [
   "./index.html",
   "./styles.css",

@@ -35,18 +35,11 @@ function getTimeProfile(hour) {
 /* ---- 날씨 한글 라벨 -> 사진 파일명에 쓰이는 영문 key ---- */
 const WEATHER_KEY_EN = { "맑음": "clear", "흐림": "gloomy", "비": "rain", "눈": "snow" };
 
-/* ---- 🧪 테스트용 고정 배경 스위치 ----
-   지금은 true 로 켜져 있어서, 시간/날씨가 뭐든 항상 assets/day.png(새로 넣은 사진) 하나만 보여줍니다.
-   원래대로 시간대별·날씨별 사진(day_clear_on.png 등)이 자동으로 바뀌게 하려면
-   아래 값을 false 로 바꾸면 됩니다. ---- */
-const TEST_STATIC_BACKGROUND = true;
-const TEST_STATIC_BACKGROUND_FILE = "day.png";
-
 /* ---- 사진 파일명 규칙: {시간}_{날씨}_{on|off}.png
    예) night_rain_on.png, sunset_snow_off.png, day_clear_on.png ---- */
 function applyBackgroundImage(timeKey, weatherLabel, lightOn) {
   const weatherKey = WEATHER_KEY_EN[weatherLabel] || "clear";
-  const file = TEST_STATIC_BACKGROUND ? TEST_STATIC_BACKGROUND_FILE : `${timeKey}_${weatherKey}_${lightOn ? "on" : "off"}.png`;
+  const file = `${timeKey}_${weatherKey}_${lightOn ? "on" : "off"}.png`;
   const appEl = document.getElementById("app");
   if (!appEl) return;
   const url = `assets/${file}`;
@@ -1187,9 +1180,9 @@ function getPlantDef(plantId) { return PLANT_CATALOG[plantId] || null; }
    .app 은 배경사진을 cover 로 채우기 때문에, 창의 가로세로 비율이 달라지면
    사진이 잘리는 위치도 달라져서 실제 선반이 화면에 보이는 높이(%)가 달라집니다. */
 const SHELF_TIERS_DESKTOP = {
-  top:    { key: "top",    label: "위 선반",   y: 0.49, xMin: 0.32, xMax: 0.72 },
-  middle: { key: "middle", label: "중간 선반", y: 0.62, xMin: 0.16, xMax: 0.84 },
-  bottom: { key: "bottom", label: "아래 선반", y: 0.90, xMin: 0.16, xMax: 0.60 },
+  top:    { key: "top",    label: "위 선반",   y: 0.48, xMin: 0.2, xMax: 0.8 },
+  middle: { key: "middle", label: "중간 선반", y: 0.585, xMin: 0.2, xMax: 0.8 },
+  bottom: { key: "bottom", label: "아래 선반", y: 0.88, xMin: 0.2, xMax: 0.8 },
 };
 
 /* 모바일(좁은 창, 세로로 긴 화면)에서 쓰는 선반 높이.
@@ -1197,9 +1190,9 @@ const SHELF_TIERS_DESKTOP = {
       아래 y 값만 살짝 조정하면 됩니다. (0 = 화면 맨 위, 1 = 화면 맨 아래)
    지금은 데스크톱과 동일한 값으로 시작하니, 폰에서 확인하면서 숫자를 바꿔보세요. */
 const SHELF_TIERS_MOBILE = {
-  top:    { key: "top",    label: "위 선반",   y: 0.49, xMin: 0.32, xMax: 0.72 },
-  middle: { key: "middle", label: "중간 선반", y: 0.62, xMin: 0.16, xMax: 0.84 },
-  bottom: { key: "bottom", label: "아래 선반", y: 0.90, xMin: 0.16, xMax: 0.60 },
+  top:    { key: "top",    label: "위 선반",   y: 0.2, xMin: 0.2, xMax: 0.8 },
+  middle: { key: "middle", label: "중간 선반", y: 0.585, xMin: 0.2, xMax: 0.8 },
+  bottom: { key: "bottom", label: "아래 선반", y: 0.86, xMin: 0.2, xMax: 0.8 },
 };
 
 // styles.css 의 `@media (min-width: 640px)` 분기와 기준을 맞춥니다.

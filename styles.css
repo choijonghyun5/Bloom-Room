@@ -45,7 +45,7 @@
 }
 
 *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body{ height: 100%; overflow: hidden; overscroll-behavior: none; }
+html, body{ height: 100%; }
 body{
   margin:0;
   font-family: var(--font-body);
@@ -54,41 +54,19 @@ body{
   overscroll-behavior: none;
   -webkit-user-select: none;
   user-select: none;
-  height: 100vh;
-  height: 100dvh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
 }
 
 button{ font-family: inherit; border:none; background:none; cursor:pointer; }
 
 .app{
-  /*
-    day.png는 실제 사진 바깥쪽에 벽/바닥 색을 자연스럽게 번지듯
-    확장한 "풀블리드"용 이미지(1108 × 1906)로 교체되었습니다.
-    덕분에 .app을 화면 크기(100vw × 100dvh)에 그대로 맞추고
-    background-size: cover를 쓰면, 어떤 화면 비율에서도 여백 없이
-    꽉 차게 채워집니다. 화면 비율이 사진과 달라 잘리는 부분이
-    생기더라도, 그 잘리는 부분은 "번짐 처리한 여백 영역"이라
-    실제 사진 속 창문·선반·화분 등은 잘리지 않습니다.
-
-    (모바일 기준 최대 560px는 그대로 유지 — 데스크톱/아이패드처럼
-    아주 넓은 화면에서 앱이 폰처럼 카드 형태로 보이게 하려는
-    의도된 디자인입니다. 그 화면들까지 완전히 꽉 채우고 싶다면
-    max-width 줄을 지우면 됩니다.)
-  */
-  width: min(100vw, 560px);
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
+  max-width: 560px;
   margin: 0 auto;
   position: relative;
   background-image: url("assets/day.png");
   background-size: cover;
-  background-repeat: no-repeat;
   background-position: center top;
   background-color: var(--cream);
 }
@@ -340,7 +318,7 @@ button.topbar-cell:active{ opacity: 0.7; }
 
 /* 사진 속 실제 펜던트 조명 위치에 맞춰 배치 (앱 전체 기준 %, 세로는 사진 그대로 매핑됨) */
 .lamp{
-  position:absolute; left: 83%; top: 32%; z-index: 4;
+  position:absolute; left: 82%; top: 25%; z-index: 4;
   width: 100px; height: 140px;
   transform: translate(-50%, 0);
   border: none; background: none; padding: 0; margin: 0;
@@ -377,8 +355,8 @@ button.topbar-cell:active{ opacity: 0.7; }
   filter: var(--scene-filter, none) drop-shadow(0 3px 5px rgba(64,48,31,0.28));
 }
 
-.humidifier{ left: 43%; top: 44%; }
-.dehumidifier{ left: 55%; top: 44%; }
+.humidifier{ left: 23%; top: 40.2%; }
+.dehumidifier{ left: 28%; top: 40.3%; }
 
 .device-mist{
   position:absolute; top: -6px; left: 50%; transform: translateX(-50%);
