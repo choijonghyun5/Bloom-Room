@@ -1164,7 +1164,7 @@ function getPlantDef(plantId) { return PLANT_CATALOG[plantId] || null; }
 /* ---------------------------------------------------------
    4-1-A. 선반 배치 시스템 (상단 / 중간 / 하단)
    =========================================================
-   ✏️ 선반 위치를 직접 수정하고 싶다면 이 SHELF_TIERS 값만 바꾸면 됩니다.
+   ✏️ 선반 위치를 직접 수정하고 싶다면 아래 SHELF_TIERS_DESKTOP / SHELF_TIERS_MOBILE 값만 바꾸면 됩니다.
 
    - y : 화면 세로 위치 비율 (0 = 화면 맨 위, 1 = 화면 맨 아래)
          화분은 이 y값에 "고정"되고, 위/아래로는 움직이지 않습니다.
@@ -1176,23 +1176,47 @@ function getPlantDef(plantId) { return PLANT_CATALOG[plantId] || null; }
        top.y 값을 0.34 → 0.37 처럼 살짝 키우면 됩니다.
        왼쪽으로 더 이동 가능하게 하려면 xMin을 더 작게(예: 0.10) 하면 됩니다.
    --------------------------------------------------------- */
-const SHELF_TIERS = {
+/* 데스크톱(넓은 창)에서 쓰는 선반 높이.
+   .app 은 배경사진을 cover 로 채우기 때문에, 창의 가로세로 비율이 달라지면
+   사진이 잘리는 위치도 달라져서 실제 선반이 화면에 보이는 높이(%)가 달라집니다. */
+const SHELF_TIERS_DESKTOP = {
   top:    { key: "top",    label: "위 선반",   y: 0.48, xMin: 0.2, xMax: 0.8 },
   middle: { key: "middle", label: "중간 선반", y: 0.585, xMin: 0.2, xMax: 0.8 },
   bottom: { key: "bottom", label: "아래 선반", y: 0.88, xMin: 0.2, xMax: 0.8 },
 };
 
+/* 모바일(좁은 창, 세로로 긴 화면)에서 쓰는 선반 높이.
+   ✏️ 폰에서 열었을 때 화분이 실제 선반 사진보다 위/아래로 어긋나 보이면
+      아래 y 값만 살짝 조정하면 됩니다. (0 = 화면 맨 위, 1 = 화면 맨 아래)
+   지금은 데스크톱과 동일한 값으로 시작하니, 폰에서 확인하면서 숫자를 바꿔보세요. */
+const SHELF_TIERS_MOBILE = {
+  top:    { key: "top",    label: "위 선반",   y: 0.2, xMin: 0.2, xMax: 0.8 },
+  middle: { key: "middle", label: "중간 선반", y: 0.585, xMin: 0.2, xMax: 0.8 },
+  bottom: { key: "bottom", label: "아래 선반", y: 0.86, xMin: 0.2, xMax: 0.8 },
+};
+
+// styles.css 의 `@media (min-width: 640px)` 분기와 기준을 맞춥니다.
+const MOBILE_BREAKPOINT_QUERY = "(max-width: 639px)";
+function isMobileViewport() {
+  return window.matchMedia(MOBILE_BREAKPOINT_QUERY).matches;
+}
+function getShelfTiers() {
+  return isMobileViewport() ? SHELF_TIERS_MOBILE : SHELF_TIERS_DESKTOP;
+}
+
 // 식물 종(species)이 속한 선반 정보를 돌려줍니다. 없으면 기본값(중간 선반)으로 처리합니다.
 function getShelfTierForPlant(plantId) {
   const def = getPlantDef(plantId);
   const key = (def && def.shelfTier) || "middle";
-  return SHELF_TIERS[key] || SHELF_TIERS.middle;
+  const tiers = getShelfTiers();
+  return tiers[key] || tiers.middle;
 }
 
 // 화분(pot)이 현재 배치돼야 할 선반 정보를 돌려줍니다. (아직 안 심은 빈 화분은 저장된 tier 값을 그대로 사용)
 function getShelfTierForPot(pot) {
   if (pot.plantId) return getShelfTierForPlant(pot.plantId);
-  return SHELF_TIERS[pot.shelfTier] || SHELF_TIERS.middle;
+  const tiers = getShelfTiers();
+  return tiers[pot.shelfTier] || tiers.middle;
 }
 
 // x는 해당 선반의 가로 범위 안으로, y는 해당 선반의 고정 높이로 맞춰줍니다.
@@ -1984,8 +2008,12 @@ function renderPot(pot) {
   const el = document.createElement("div");
   const planted = !!pot.plantId;
   el.className = "pot" + (!planted ? " is-empty" : "");
-  el.style.left = (pot.x * 100) + "%";
-  el.style.top = (pot.y * 100) + "%";
+  // y(선반 높이)는 항상 "현재 화면"의 선반 기준으로 다시 계산합니다.
+  // (같은 데이터를 데스크톱/모바일에서 번갈아 열어도 선반 위치가 어긋나지 않도록)
+  const tier = getShelfTierForPot(pot);
+  const renderX = clamp(pot.x, tier.xMin, tier.xMax);
+  el.style.left = (renderX * 100) + "%";
+  el.style.top = (tier.y * 100) + "%";
   el.dataset.id = pot.id;
 
   if (!planted) {
@@ -2397,7 +2425,7 @@ function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
 /* ---------------------------------------------------------
    화분을 놓을 정해진 위치 찾기.
-   각 식물 종류는 SHELF_TIERS 에 지정된 자기 선반(top/middle/bottom)이 있고,
+   각 식물 종류는 SHELF_TIERS_DESKTOP/SHELF_TIERS_MOBILE 에 지정된 자기 선반(top/middle/bottom)이 있고,
    그 선반 안에서 이미 놓인 다른 화분과 겹치지 않는 첫 빈 자리를 찾아 놓습니다.
    (더 이상 랜덤 위치가 아니고, 선반도 항상 식물 종류에 맞게 고정됩니다)
    --------------------------------------------------------- */
@@ -2632,27 +2660,19 @@ function showToast(msg) {
 /* ---------------------------------------------------------
    10. 초기 렌더 + 서비스워커 등록(가능한 경우)
    --------------------------------------------------------- */
-if (pots.length === 0) {
-  // 처음 방문 시, 사진 속 선반(위 칸 2개 + 아래 칸 3개)에 화분 5개를 미리 배치
-  const shelfSeedPositions = [
-    { x: 0.35, y: 0.32 }, // 위 칸
-    { x: 0.62, y: 0.32 }, // 위 칸
-    { x: 0.20, y: 0.45 }, // 아래 칸
-    { x: 0.44, y: 0.45 }, // 아래 칸
-    { x: 0.68, y: 0.45 }, // 아래 칸
-  ];
-  shelfSeedPositions.forEach((pos, i) => {
-    pots.push({
-      id: "pot_seed_" + i,
-      x: pos.x, y: pos.y,
-      plantId: null, stage: "empty", name: null,
-      createdAt: Date.now(),
-    });
-  });
-  savePots(pots);
-}
 renderPots();
 setInterval(() => { renderPots(); }, 5 * 60 * 1000); // 5분마다 물/건강 상태 갱신
+
+// 모바일 ↔ 데스크톱 너비 경계를 넘나들 때(창 크기 조절, 기기 회전 등) 선반 높이를 다시 계산합니다.
+if (window.matchMedia) {
+  const mobileBreakpointMql = window.matchMedia(MOBILE_BREAKPOINT_QUERY);
+  const handleBreakpointChange = () => renderPots();
+  if (mobileBreakpointMql.addEventListener) {
+    mobileBreakpointMql.addEventListener("change", handleBreakpointChange);
+  } else if (mobileBreakpointMql.addListener) {
+    mobileBreakpointMql.addListener(handleBreakpointChange); // 구형 Safari 호환
+  }
+}
 
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
