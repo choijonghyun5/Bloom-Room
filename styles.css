@@ -56,7 +56,7 @@ body{
   user-select: none;
   height: 100vh;
   height: 100dvh;
-  display: flex;
+  
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -87,12 +87,14 @@ button{ font-family: inherit; border:none; background:none; cursor:pointer; }
   flex-direction: column;
   flex-shrink: 0;
   margin: 0 auto;
-  position: relative;
+  position:fixed;
+  inset:0;
   background-image: url("assets/day.png");
   background-size: 100% 100%;
   background-repeat: no-repeat;
   background-position: center top;
   background-color: var(--cream);
+  background: red !important;
 }
 
 /* ===================== 유리(글래스) 공통 스타일 ===================== */
