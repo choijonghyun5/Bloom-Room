@@ -45,7 +45,7 @@
 }
 
 *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body{ height: 100%; }
+html, body{ height: 100%; overflow: hidden; overscroll-behavior: none; }
 body{
   margin:0;
   font-family: var(--font-body);
@@ -54,6 +54,7 @@ body{
   overscroll-behavior: none;
   -webkit-user-select: none;
   user-select: none;
+  height: 100vh;
   height: 100dvh;
   display: flex;
   align-items: center;
@@ -65,26 +66,25 @@ button{ font-family: inherit; border:none; background:none; cursor:pointer; }
 
 .app{
   /*
-    배경 사진(day.png = 852 × 1846, 비율 약 0.4615)과 .app 박스의
-    가로세로 비율을 항상 똑같이 맞춰서, 사진이 레터박스 없이 .app을
-    정확히 꽉 채우도록 합니다. 그래야 %로 배치된 조명/가습기/화분 같은
-    UI가 화면 크기와 상관없이 항상 "사진 안"에 위치하게 됩니다.
-
-    아래 두 줄은 "뷰포트에 비율을 유지한 채 최대한 크게 맞추기"
-    공식입니다. width/height 각각 세 후보 중 가장 작은 값을 쓰는데,
-    세 후보가 모두 같은 비율(852/1846)에서 나온 값이라 항상 서로 짝이
-    맞습니다 (레터박스 없는 순수 CSS 리사이즈).
+    화면을 항상 꽉 채우고(가로 100vw, 세로 100dvh), 사진은
+    background-size: cover로 꽉 채워 넣습니다.
+    day.png 비율(852:1846 ≈ 0.4615)이 실제 스마트폰 화면 비율과
+    거의 동일하기 때문에 cover로 채워도 잘리는 영역은 사실상 없고,
+    Safari 주소창이 나타났다 사라졌다 하면서 100dvh 값이 흔들려도
+    (이전처럼 가로 폭까지 같이 줄어드는 일 없이) 항상 화면을
+    빈틈없이 채웁니다.
   */
-  --img-ratio: 0.461538; /* 852 / 1846 */
-  width: min(100vw, calc(100dvh * var(--img-ratio)), 560px);
-  height: min(100dvh, calc(100vw / var(--img-ratio)), calc(560px / var(--img-ratio)));
+  width: 100%;
+  max-width: 560px;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   margin: 0 auto;
   position: relative;
   background-image: url("assets/day.png");
-  background-size: 100% 100%;
+  background-size: cover;
   background-repeat: no-repeat;
   background-position: center top;
   background-color: var(--cream);
