@@ -260,5 +260,18 @@
 
 <script src="sound-engine.js"></script>
 <script src="app.js"></script>
+<script>
+window.addEventListener("load", () => {
+  const app = document.getElementById("app");
+
+  alert(
+`innerHeight : ${window.innerHeight}
+visualViewport : ${window.visualViewport?.height}
+app : ${app.getBoundingClientRect().height}
+body : ${document.body.getBoundingClientRect().height}
+html : ${document.documentElement.getBoundingClientRect().height}`);
+});
+</script>
+
 </body>
 </html>
