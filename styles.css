@@ -56,7 +56,7 @@ html, body{ height: 100%; }
    폰 기종을 더 정확히 맞추고 싶으면 아래 두 숫자만 실제 기기 값으로 바꾸면 됩니다. */
 :root{
   --app-ratio-w: 393;
-  --app-ratio-h: 694;
+  --app-ratio-h: 852;
   /* PC처럼 넓은 화면에서 이 폭을 넘지 않도록 상한을 둡니다(원하면 숫자만 조정하세요). */
   --app-max-w: 480px;
 }
@@ -92,7 +92,7 @@ button{ font-family: inherit; border:none; background:none; cursor:pointer; }
   overflow: hidden;
   background-image: url("assets/day.png");
   background-size: 100% auto;
-  background-position: center top;
+  background-position: center bottom;
   background-color: var(--cream);
   box-shadow: 0 12px 48px rgba(0,0,0,0.35);
 }

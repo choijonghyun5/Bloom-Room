@@ -33,7 +33,7 @@
    PC에서 열어도 내 폰과 똑같은 비율로 보입니다.
    ========================================================= */
 (function () {
-  var STORAGE_KEY = "greennote_app_ratio_v2";
+  var STORAGE_KEY = "greennote_app_ratio_v3";
   var root = document.documentElement;
   var ratio = null;
 
@@ -45,17 +45,18 @@
   var isTouchDevice = matchMedia("(pointer: coarse)").matches;
 
   if (!ratio && isTouchDevice) {
-    // screen.width/height(기기 전체 해상도)가 아니라, 브라우저 주소창/하단 바를 뺀
-    // "실제 눈에 보이는" 화면 크기(window.innerWidth/innerHeight)를 기준으로 삼습니다.
-    var w = window.innerWidth || document.documentElement.clientWidth;
-    var h = window.innerHeight || document.documentElement.clientHeight;
+    // 홈 화면에 추가해서 열면(standalone) 주소창이 없어서 화면 전체(screen.width/height)를
+    // 다 씁니다. 그래서 브라우저 주소창 유무와 무관하게 항상 안정적인 "기기 전체 화면"
+    // 크기(screen.width/height)를 기준으로 삼습니다.
+    var w = Math.min(screen.width, screen.height);
+    var h = Math.max(screen.width, screen.height);
     if (w > 0 && h > 0) {
       ratio = { w: w, h: h };
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(ratio)); } catch (e) {}
     }
   }
 
-  if (!ratio) ratio = { w: 393, h: 694 }; // 아이폰 15 프로 기준 기본값 (아직 폰에서 연 적 없을 때 대비)
+  if (!ratio) ratio = { w: 393, h: 852 }; // 아이폰 15 프로 전체 화면 기준 기본값 (아직 폰에서 연 적 없을 때 대비)
 
   root.style.setProperty("--app-ratio-w", ratio.w);
   root.style.setProperty("--app-ratio-h", ratio.h);
