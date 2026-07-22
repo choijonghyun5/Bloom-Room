@@ -2,14 +2,6 @@
    그린노트 - 디자인 토큰
    Cream paper + warm wood + soft plant green
    ========================================================= */
-
-
-*,
-*::before,
-*::after{
-    box-sizing:border-box;
-}
-
 :root{
   --cream:        #F5EFE4;
   --cream-deep:   #ECE3D2;
@@ -55,9 +47,19 @@
 *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body{ height: 100%; overflow: hidden; overscroll-behavior: none; }
 body{
-    margin:0;
-    background:black !important;
-    overflow:hidden;
+  margin:0;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--cream);
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
 button{ font-family: inherit; border:none; background:none; cursor:pointer; }
@@ -79,24 +81,19 @@ button{ font-family: inherit; border:none; background:none; cursor:pointer; }
     "안 자르기"와 "여백 0"은 비율이 다른 화면에서는 물리적으로
     동시에 만족할 수 없기 때문입니다.
   */
-  position: fixed;
-
-     position:fixed;
-    inset:0;
-    background:yellow !important;
-    background-image:none !important;
-
-}
-
-.app::after{
-    content:"";
-    position:absolute;
-    left:0;
-    right:0;
-    bottom:0;
-    height:40px;
-    background:red;
-    z-index:99999;
+  --img-ratio: 0.461538; /* 852 / 1846 */
+  width: min(100vw, calc(100dvh * var(--img-ratio)), 560px);
+  height: min(100dvh, calc(100vw / var(--img-ratio)), calc(560px / var(--img-ratio)));
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  margin: 0 auto;
+  position: relative;
+  background-image: url("assets/day.png");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-color: var(--cream);
 }
 
 /* ===================== 유리(글래스) 공통 스타일 ===================== */
@@ -776,7 +773,7 @@ button.topbar-cell:active{ opacity: 0.7; }
   z-index: 20;
   display:flex;
   justify-content: space-around;
-margin: 0 14px 0;
+  margin: 0 14px max(8px, env(safe-area-inset-bottom));
   padding: 6px 4px;
   border-radius: 999px;
 }

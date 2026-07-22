@@ -260,41 +260,5 @@
 
 <script src="sound-engine.js"></script>
 <script src="app.js"></script>
-<script>
-window.addEventListener("load", () => {
-  const app = document.getElementById("app");
-
-  alert(
-`innerHeight : ${window.innerHeight}
-visualViewport : ${window.visualViewport?.height}
-app : ${app.getBoundingClientRect().height}
-body : ${document.body.getBoundingClientRect().height}
-html : ${document.documentElement.getBoundingClientRect().height}`);
-});
-</script>
-
-<script>
-window.addEventListener("load", () => {
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-
-      const app = document.getElementById("app");
-      const dock = document.querySelector(".dock");
-
-      alert(`
-window = ${window.innerHeight}
-
-appBottom = ${app.getBoundingClientRect().bottom}
-
-dockTop = ${dock.getBoundingClientRect().top}
-
-dockBottom = ${dock.getBoundingClientRect().bottom}
-`);
-
-    });
-  });
-});
-</script>
-
 </body>
 </html>
