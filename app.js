@@ -480,6 +480,8 @@ updateDeviceVisuals();
    선반 맨 위 칸(세로 top:40% 고정)에서 좌우로만 움직일 수 있게 합니다.
    ✏️ 이동 가능한 가로 범위를 바꾸고 싶다면 DEVICE_SHELF 값만 조정하면 됩니다.
    --------------------------------------------------------- */
+// xMax를 0.75→0.42로 좁혀서, 기기가 선반 오른쪽(화분이 놓이는 자리)까지
+// 넘어가 화분과 겹치지 않도록 창문 쪽 절반만 사용하게 했습니다.
 const DEVICE_SHELF = { y: 0.40, xMin: 0.15, xMax: 0.75 };
 const DEVICE_WIDTH_PX = 25; // 실제 아이콘 폭(34px) + 여유 간격
 const DEVICE_IDS = ["humidifierDevice", "dehumidifierDevice"];
@@ -1179,10 +1181,12 @@ function getPlantDef(plantId) { return PLANT_CATALOG[plantId] || null; }
 /* 데스크톱(넓은 창)에서 쓰는 선반 높이.
    .app 은 배경사진을 cover 로 채우기 때문에, 창의 가로세로 비율이 달라지면
    사진이 잘리는 위치도 달라져서 실제 선반이 화면에 보이는 높이(%)가 달라집니다. */
+// ✏️ top.xMin을 0.2→0.46으로 올려서, 위 선반의 왼쪽(창문 쪽, DEVICE_SHELF가 차지하는 0.15~0.42 구간)에는
+//    화분이 놓이지 않고 기기와 겹치지 않게 오른쪽 공간만 쓰도록 했습니다.
 const SHELF_TIERS_DESKTOP = {
-  top:    { key: "top",    label: "위 선반",   y: 0.48, xMin: 0.2, xMax: 0.8 },
-  middle: { key: "middle", label: "중간 선반", y: 0.585, xMin: 0.2, xMax: 0.8 },
-  bottom: { key: "bottom", label: "아래 선반", y: 0.88, xMin: 0.2, xMax: 0.8 },
+  top:    { key: "top",    label: "위 선반",   y: 0.53, xMin: 0.46, xMax: 0.75 },
+  middle: { key: "middle", label: "중간 선반", y: 0.623, xMin: 0.2, xMax: 0.8 },
+  bottom: { key: "bottom", label: "아래 선반", y: 0.86, xMin: 0.2, xMax: 0.8 },
 };
 
 /* 모바일(좁은 창, 세로로 긴 화면)에서 쓰는 선반 높이.
@@ -1190,7 +1194,7 @@ const SHELF_TIERS_DESKTOP = {
       아래 y 값만 살짝 조정하면 됩니다. (0 = 화면 맨 위, 1 = 화면 맨 아래)
    지금은 데스크톱과 동일한 값으로 시작하니, 폰에서 확인하면서 숫자를 바꿔보세요. */
 const SHELF_TIERS_MOBILE = {
-  top:    { key: "top",    label: "위 선반",   y: 0.2, xMin: 0.2, xMax: 0.8 },
+  top:    { key: "top",    label: "위 선반",   y: 0.2, xMin: 0.46, xMax: 0.8 },
   middle: { key: "middle", label: "중간 선반", y: 0.585, xMin: 0.2, xMax: 0.8 },
   bottom: { key: "bottom", label: "아래 선반", y: 0.86, xMin: 0.2, xMax: 0.8 },
 };

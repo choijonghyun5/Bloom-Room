@@ -316,17 +316,17 @@ button.topbar-cell:active{ opacity: 0.7; }
   50%{ transform: rotate(1.1deg); }
 }
 
-/* 사진 속 실제 펜던트 조명 위치에 맞춰 배치 (앱 전체 기준 %, 세로는 사진 그대로 매핑됨) */
+/* 사진 속 실제 펜던트 조명(전구) 위치에 맞춰 배치 (앱 전체 기준 %, 전구 중심을 (85%, 39%)에 정렬) */
 .lamp{
-  position:absolute; left: 82%; top: 25%; z-index: 4;
-  width: 100px; height: 140px;
-  transform: translate(-50%, 0);
+  position:absolute; left: 85%; top: 39%; z-index: 4;
+  width: 100px; height: 130px;
+  transform: translate(-50%, -50%);
   border: none; background: none; padding: 0; margin: 0;
   cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .lamp-glow{
-  position:absolute; top: 35%; left: 50%; transform: translate(-50%, -20%);
-  width: 130px; height: 130px; border-radius: 50%;
+  position:absolute; top: 77%; left: 46%; transform: translate(-50%, -50%);
+  width: 120px; height: 120px; border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 214, 140, 0.6), transparent 65%);
   opacity: 0;
   transition: opacity 2.5s ease;
@@ -355,8 +355,8 @@ button.topbar-cell:active{ opacity: 0.7; }
   filter: var(--scene-filter, none) drop-shadow(0 3px 5px rgba(64,48,31,0.28));
 }
 
-.humidifier{ left: 23%; top: 40.2%; }
-.dehumidifier{ left: 28%; top: 40.3%; }
+.humidifier{ left: 23%; top: 45.2%; }
+.dehumidifier{ left: 28%; top: 45.5%; }
 
 .device-mist{
   position:absolute; top: -6px; left: 50%; transform: translateX(-50%);
@@ -1513,9 +1513,29 @@ button.topbar-cell:active{ opacity: 0.7; }
 .ach-title{ font-family: var(--font-display); font-size: 13px; color: var(--wood-deep); }
 .ach-desc{ font-size: 10.5px; color: var(--ink-faint); line-height: 1.5; }
 
-/* 큰 화면 대응 */
+/* 큰 화면(컴퓨터) 대응: 앱 창을 아이폰 화면비(9:19.5, 스크린샷과 동일)로 고정해서
+   가운데에 폰 모양으로 떠 보이게 만듭니다. */
 @media (min-width: 640px){
-  .app{ padding-top: 12px; }
+  html, body{
+    background: #1b1b1b;
+  }
+  body{
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .app{
+    width: auto;
+    max-width: none;
+    height: min(100dvh, 960px);
+    aspect-ratio: 1179 / 2556; /* 스크린샷과 동일한 비율 */
+    margin: 0;
+    padding-top: 12px;
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  }
 }
 
 /* 동작 최소화 옵션 존중 */
