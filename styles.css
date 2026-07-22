@@ -56,10 +56,12 @@ body{
   user-select: none;
   height: 100vh;
   height: 100dvh;
+  display : flex;
   
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  background: lime !important;
 }
 
 button{ font-family: inherit; border:none; background:none; cursor:pointer; }
@@ -94,6 +96,8 @@ button{ font-family: inherit; border:none; background:none; cursor:pointer; }
   background-repeat: no-repeat;
   background-position: center top;
   background-color: var(--cream);
+  background: red !important;
+  background-image: none !important;
 
 }
 
