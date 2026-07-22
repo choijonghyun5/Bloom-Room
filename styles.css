@@ -81,9 +81,8 @@ button{ font-family: inherit; border:none; background:none; cursor:pointer; }
     "안 자르기"와 "여백 0"은 비율이 다른 화면에서는 물리적으로
     동시에 만족할 수 없기 때문입니다.
   */
-  --img-ratio: 0.461538; /* 852 / 1846 */
-  width: min(100vw, calc(100dvh * var(--img-ratio)), 560px);
-  height: min(100dvh, calc(100vw / var(--img-ratio)), calc(560px / var(--img-ratio)));
+  width: 100vw;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
