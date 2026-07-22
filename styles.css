@@ -46,11 +46,31 @@
 
 *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body{ height: 100%; }
+
+/* ===================== 기준 화면(디자인 캔버스) ===================== */
+/* 그린노트는 항상 "핸드폰 화면 비율"을 기준으로 그려집니다.
+   PC 등 넓은 화면에서 열어도 화면 비율(가로:세로)이 폰과 똑같이 유지되고,
+   남는 공간은 위/아래(또는 좌/우)에 여백으로만 남습니다.
+   → 조명/가습기/제습기/화분처럼 %로 배치된 요소들이 화면 비율에 따라
+     서로 다른 위치로 밀리던 문제가 사라집니다.
+   폰 기종을 더 정확히 맞추고 싶으면 아래 두 숫자만 실제 기기 값으로 바꾸면 됩니다. */
+:root{
+  --app-ratio-w: 393;
+  --app-ratio-h: 694;
+  /* PC처럼 넓은 화면에서 이 폭을 넘지 않도록 상한을 둡니다(원하면 숫자만 조정하세요). */
+  --app-max-w: 480px;
+}
+
 body{
   margin:0;
+  height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-family: var(--font-body);
   color: var(--ink);
-  background: var(--cream);
+  /* 데스크톱에서 생기는 여백(레터박스) 색상 */
+  background: var(--wood-deep);
   overscroll-behavior: none;
   -webkit-user-select: none;
   user-select: none;
@@ -59,16 +79,22 @@ body{
 button{ font-family: inherit; border:none; background:none; cursor:pointer; }
 
 .app{
-  height: 100dvh;
+  /* 가로를 기준으로 폭을 정하고(=옆이 잘리지 않고), 세로는 폰 비율에 맞춰 자동으로 계산됩니다.
+     PC처럼 넓은 화면에서는 --app-max-w 폭까지만 커지고, 남는 공간은 위/아래(또는 좌/우)
+     여백으로 남습니다. 세로가 화면보다 넘칠 정도로 창이 짧을 때만 예외적으로 줄어듭니다. */
+  width: min(100vw, var(--app-max-w));
+  aspect-ratio: var(--app-ratio-w) / var(--app-ratio-h);
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
-  max-width: 560px;
-  margin: 0 auto;
+  margin: auto;
   position: relative;
+  overflow: hidden;
   background-image: url("assets/day.png");
-  background-size: cover;
+  background-size: 100% auto;
   background-position: center top;
   background-color: var(--cream);
+  box-shadow: 0 12px 48px rgba(0,0,0,0.35);
 }
 
 /* ===================== 유리(글래스) 공통 스타일 ===================== */
@@ -1512,11 +1538,6 @@ button.topbar-cell:active{ opacity: 0.7; }
 .ach-icon{ font-size: 22px; }
 .ach-title{ font-family: var(--font-display); font-size: 13px; color: var(--wood-deep); }
 .ach-desc{ font-size: 10.5px; color: var(--ink-faint); line-height: 1.5; }
-
-/* 큰 화면 대응 */
-@media (min-width: 640px){
-  .app{ padding-top: 12px; }
-}
 
 /* 동작 최소화 옵션 존중 */
 @media (prefers-reduced-motion: reduce){
