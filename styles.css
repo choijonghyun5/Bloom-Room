@@ -66,39 +66,31 @@ button{ font-family: inherit; border:none; background:none; cursor:pointer; }
 
 .app{
   /*
-    사진을 절대 자르지 않으면서(crop 없이) 화면을 최대한 채우려면
-    .app 박스의 가로세로 비율이 사진(day.png = 852 × 1846,
-    비율 약 0.4615)과 정확히 같아야 합니다. 그래서 아래 두 줄로
-    "화면에 들어가는 한도 내에서, 사진 비율 그대로 최대 크기"를
-    계산합니다. (홈 화면에 추가해 standalone으로 실행하면 주소창이
-    없어서 100dvh 값이 흔들리지 않으므로 이 계산이 안정적으로
-    동작합니다.)
+    day.png는 실제 사진 바깥쪽에 벽/바닥 색을 자연스럽게 번지듯
+    확장한 "풀블리드"용 이미지(1108 × 1906)로 교체되었습니다.
+    덕분에 .app을 화면 크기(100vw × 100dvh)에 그대로 맞추고
+    background-size: cover를 쓰면, 어떤 화면 비율에서도 여백 없이
+    꽉 차게 채워집니다. 화면 비율이 사진과 달라 잘리는 부분이
+    생기더라도, 그 잘리는 부분은 "번짐 처리한 여백 영역"이라
+    실제 사진 속 창문·선반·화분 등은 잘리지 않습니다.
 
-    화면 비율이 사진 비율과 정확히 일치하는 기기(최근 아이폰 대부분)
-    에서는 여백이 전혀 안 보이고, 비율이 많이 다른 기기(예: 구형
-    iPhone SE처럼 화면이 더 정사각형에 가까운 경우)에서는 사진을
-    자르지 않는 대신 위아래에 얇은 여백이 생길 수 있습니다 —
-    "안 자르기"와 "여백 0"은 비율이 다른 화면에서는 물리적으로
-    동시에 만족할 수 없기 때문입니다.
+    (모바일 기준 최대 560px는 그대로 유지 — 데스크톱/아이패드처럼
+    아주 넓은 화면에서 앱이 폰처럼 카드 형태로 보이게 하려는
+    의도된 디자인입니다. 그 화면들까지 완전히 꽉 채우고 싶다면
+    max-width 줄을 지우면 됩니다.)
   */
-  .app {
-  /* 화면 전체를 여백 없이 채우기 */
-  width: 100vw;
-  height: 100vh;
+  width: min(100vw, 560px);
   height: 100dvh;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   margin: 0 auto;
   position: relative;
-
-  /* 배경 이미지가 비율을 유지하면서 화면 전체를 빈틈없이 덮도록 설정 */
   background-image: url("assets/day.png");
   background-size: cover;
   background-repeat: no-repeat;
-  background-position: center center;
+  background-position: center top;
   background-color: var(--cream);
-}
 }
 
 /* ===================== 유리(글래스) 공통 스타일 ===================== */
