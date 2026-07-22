@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<title>그린노트 – 식물 카페</title>
+
+<!-- PWA / Safari 홈 화면 설정 -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#F5EFE4" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="그린노트" />
+<link rel="apple-touch-icon" href="assets/icon-180.png" />
+<link rel="icon" href="assets/icon-192.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- ===== 상단 상태바 (날짜/시간 · 날씨 · 코인/사운드) ===== -->
+  <header class="topbar glass-bar" id="topbar">
+    <div class="topbar-cell topbar-clock">
+      <span class="topbar-icon" id="timeIcon" aria-hidden="true">☀️</span>
+      <div class="topbar-cell-text">
+        <span class="topbar-primary" id="clockDate">–</span>
+        <span class="topbar-secondary" id="clockTime">–</span>
+      </div>
+    </div>
+    <span class="topbar-sep" aria-hidden="true"></span>
+    <button class="topbar-cell topbar-weather" id="envStripWeatherBtn" title="카페 환경 자세히 보기">
+      <span class="topbar-icon" id="envStripWeatherIcon" aria-hidden="true">☀️</span>
+      <div class="topbar-cell-text">
+        <span class="topbar-primary" id="topTemp">–°</span>
+        <span class="topbar-secondary" id="envStripWeatherText">날씨 확인 중</span>
+      </div>
+    </button>
+    <span class="topbar-sep" aria-hidden="true"></span>
+    <div class="topbar-right">
+      <div class="coin-pill" title="코인 (다음 단계에서 연동)">
+        <span aria-hidden="true">🪙</span>
+        <span id="coinValue">0</span>
+      </div>
+      <button class="icon-btn" id="btnMixer" title="백색소음 믹서">
+        <span aria-hidden="true">🎧</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 레벨/경험치 스트립 -->
+  <button class="exp-strip glass-bar" id="expStrip" title="레벨 정보 보기">
+    <span class="exp-level" id="expLevel">Lv.1</span>
+    <div class="exp-track"><div class="exp-fill" id="expFill"></div></div>
+  </button>
+
+  <!-- 카페 환경 스트립 (항상 표시, 탭하면 자세히 보기) -->
+  <button class="env-strip glass-bar" id="envStrip" title="카페 환경 자세히 보기">
+    <span class="env-strip-item">
+      <span class="env-strip-icon" aria-hidden="true">🔆</span>
+      <span class="env-strip-text" id="envStripLight">– %</span>
+    </span>
+    <span class="env-strip-sep" aria-hidden="true"></span>
+    <span class="env-strip-item">
+      <span class="env-strip-icon" aria-hidden="true">💧</span>
+      <span class="env-strip-text" id="envStripHumidity">– %</span>
+    </span>
+    <span class="env-strip-sep" aria-hidden="true"></span>
+    <span class="env-strip-devices" id="envStripDevices">
+      <span class="env-strip-device" id="envStripLampDot" title="조명" aria-hidden="true">💡</span>
+      <span class="env-strip-device" id="envStripHumidifierDot" title="가습기" aria-hidden="true">💦</span>
+      <span class="env-strip-device" id="envStripDehumidifierDot" title="제습기" aria-hidden="true">🌬️</span>
+    </span>
+    <span class="env-strip-alert" id="envStripAlert"></span>
+  </button>
+
+  <!-- 집중(공부) 시작 배너: 상단 스트립 바로 아래로 이동 (하단 전체를 화분 배치 공간으로 비워둠) -->
+  <button class="focus-cta glass-bar-strong" id="btnFocusCta">
+    <span class="focus-cta-icon" aria-hidden="true">🌱</span>
+    <span class="focus-cta-text">
+      <span class="focus-cta-title">집중 시작하기</span>
+      <span class="focus-cta-sub" id="focusCtaSub">오늘 아직 집중 기록이 없어요</span>
+    </span>
+  </button>
+
+  <!-- ===== 카페 메인 스테이지 ===== -->
+  <main class="stage" id="stage">
+
+    <!-- 창문: 시간대에 따라 하늘빛이 자연스럽게 변함 -->
+    <section class="window" id="window">
+      <div class="sky" id="sky" aria-hidden="true"></div>
+      <div class="sun-rays" id="sunRays" aria-hidden="true"></div>
+      <div class="window-frame" aria-hidden="true">
+        <div class="pane"></div><div class="pane"></div>
+        <div class="pane"></div><div class="pane"></div>
+      </div>
+      <div class="curtain curtain-left" aria-hidden="true"></div>
+      <div class="curtain curtain-right" aria-hidden="true"></div>
+      <div class="weather-layer" id="weatherLayer" aria-hidden="true"></div>
+    </section>
+
+    <!-- 안내 말풍선 -->
+    <div class="toast" id="toast"></div>
+
+  </main>
+
+  <!-- 조명/가습기/제습기/먼지/화분: 사진 속 실제 창·선반 위치에 맞춰 화면(app) 전체 기준으로 배치 -->
+  <button class="lamp" id="lamp" title="조명 켜기/끄기" aria-label="조명 켜기/끄기">
+    <div class="lamp-glow" id="lampGlow"></div>
+  </button>
+  <button class="cafe-device humidifier" id="humidifierDevice" title="가습기 켜기/끄기" aria-label="가습기 켜기/끄기">
+    <div class="device-mist" id="humidifierMist"></div>
+    <img class="device-icon-img" src="assets/devices/humidifier.png" alt="가습기" draggable="false" />
+  </button>
+  <button class="cafe-device dehumidifier" id="dehumidifierDevice" title="제습기 켜기/끄기" aria-label="제습기 켜기/끄기">
+    <div class="device-breeze" id="dehumidifierBreeze"></div>
+    <img class="device-icon-img" src="assets/devices/dehumidifier.png" alt="제습기" draggable="false" />
+  </button>
+  <div class="dust-layer" id="dustLayer" aria-hidden="true"></div>
+  <div class="pots-zone" id="potsZone">
+    <!-- 화분은 app.js 에서 동적으로 렌더됩니다 -->
+  </div>
+
+  <!-- ===== 하단 선반형 내비게이션 ===== -->
+  <nav class="dock glass-bar">
+    <button class="dock-item is-active" data-tab="home">
+      <span class="dock-icon" aria-hidden="true">🏠</span><span>홈</span>
+    </button>
+    <button class="dock-item" data-tab="shop">
+      <span class="dock-icon" aria-hidden="true">🛍️</span><span>상점</span>
+    </button>
+    <button class="dock-item" id="dockAddPot" data-tab="addpot">
+      <span class="dock-icon" aria-hidden="true">➕</span><span>화분 놓기</span>
+    </button>
+    <button class="dock-item" data-tab="dex">
+      <span class="dock-icon" aria-hidden="true">📖</span><span>도감</span>
+    </button>
+    <button class="dock-item" data-tab="stats">
+      <span class="dock-icon" aria-hidden="true">📊</span><span>통계</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- ===== 집중(공부) 오버레이 ===== -->
+<div class="focus-overlay" id="focusOverlay">
+  <button class="focus-close" id="focusClose" aria-label="닫기">✕</button>
+  <button class="focus-mixer-btn" id="focusMixerBtn" aria-label="백색소음 믹서 열기">🎧</button>
+  <div class="focus-content">
+    <p class="focus-eyebrow">오늘의 집중</p>
+    <div class="focus-ring-wrap">
+      <svg class="focus-ring" viewBox="0 0 200 200">
+        <circle class="ring-track" cx="100" cy="100" r="90"></circle>
+        <circle class="ring-progress" id="ringProgress" cx="100" cy="100" r="90"></circle>
+      </svg>
+      <div class="focus-time" id="focusTimeDisplay">25:00</div>
+    </div>
+
+    <div class="focus-presets" id="focusPresets">
+      <button class="preset-btn" data-min="15">15분</button>
+      <button class="preset-btn is-selected" data-min="25">25분</button>
+      <button class="preset-btn" data-min="50">50분</button>
+      <button class="preset-btn" data-min="custom">직접 입력</button>
+    </div>
+    <input type="number" id="customMinutes" class="custom-minutes-input" placeholder="분 단위로 입력" min="1" max="180" />
+
+    <div class="focus-controls">
+      <button class="focus-btn ghost" id="btnFocusStop" hidden>그만하기</button>
+      <button class="focus-btn primary" id="btnFocusStart">집중 시작</button>
+      <button class="focus-btn primary" id="btnFocusPause" hidden>일시정지</button>
+    </div>
+    <p class="focus-hint" id="focusHint">집중하는 동안에는 방해 요소가 모두 잠시 멈춰요 🌿</p>
+  </div>
+</div>
+
+<!-- ===== 화분 확대 보기 오버레이 (물주기/잡초뽑기/사진찍기 등) ===== -->
+<div class="pot-zoom-overlay" id="potZoomOverlay">
+  <button class="focus-close" id="potZoomClose" aria-label="닫기">✕</button>
+  <div class="pot-zoom-content">
+    <div class="pot-zoom-stage" id="potZoomStage">
+      <canvas id="potZoomCanvas" width="640" height="760"></canvas>
+      <div class="pot-zoom-water-fx" id="potZoomWaterFx" aria-hidden="true"></div>
+    </div>
+    <div class="pot-zoom-info" id="potZoomInfo"></div>
+    <div class="pot-zoom-actions" id="potZoomActions"></div>
+  </div>
+</div>
+
+<!-- ===== 백색소음 믹서 오버레이 ===== -->
+<div class="mixer-overlay" id="mixerOverlay">
+  <div class="mixer-panel">
+    <div class="mixer-header">
+      <h3>백색소음 믹서</h3>
+      <button class="focus-close mixer-close-btn" id="mixerClose" aria-label="닫기">✕</button>
+    </div>
+
+    <div class="mixer-presets" id="mixerPresets">
+      <button class="preset-chip is-add" id="btnSavePreset">＋ 지금 조합 저장</button>
+    </div>
+
+    <div class="mixer-scroll">
+      <p class="mixer-group-title">기본 사운드</p>
+      <div class="mixer-list" id="mixerAmbientList"></div>
+      <p class="mixer-group-title">추가 효과음</p>
+      <div class="mixer-list" id="mixerEffectList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 상점 오버레이 ===== -->
+<div class="shop-overlay" id="shopOverlay">
+  <div class="shop-panel">
+    <div class="shop-header">
+      <h3>상점</h3>
+      <div class="shop-coin"><span aria-hidden="true">🪙</span><span id="shopCoinValue">0</span></div>
+      <button class="focus-close mixer-close-btn" id="shopClose" aria-label="닫기">✕</button>
+    </div>
+    <div class="shop-tabs" id="shopTabs">
+      <button class="shop-tab is-active" data-cat="seeds">🌱 씨앗</button>
+      <button class="shop-tab" data-cat="tools">🧰 도구</button>
+      <button class="shop-tab" data-cat="pots">🪴 화분</button>
+    </div>
+    <div class="shop-scroll" id="shopScroll"></div>
+  </div>
+</div>
+
+<!-- ===== 도감 오버레이 ===== -->
+<div class="dex-overlay" id="dexOverlay">
+  <div class="dex-panel">
+    <div class="dex-header">
+      <h3>도감</h3>
+      <div class="dex-progress" id="dexProgress">0 / 0</div>
+      <button class="focus-close mixer-close-btn" id="dexClose" aria-label="닫기">✕</button>
+    </div>
+    <div class="dex-scroll" id="dexScroll"></div>
+  </div>
+</div>
+
+<!-- ===== 통계 오버레이 ===== -->
+<div class="stats-overlay" id="statsOverlay">
+  <div class="stats-panel">
+    <div class="stats-header">
+      <h3>통계</h3>
+      <button class="focus-close mixer-close-btn" id="statsClose" aria-label="닫기">✕</button>
+    </div>
+    <div class="shop-tabs" id="statsTabs">
+      <button class="shop-tab is-active" data-stab="stats">📊 통계</button>
+      <button class="shop-tab" data-stab="ach">🏆 업적</button>
+    </div>
+    <div class="stats-scroll" id="statsScroll"></div>
+  </div>
+</div>
+
+<!-- 화분 상세/심기 모달 (플레이스홀더) -->
+<div class="sheet-backdrop" id="sheetBackdrop">
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-body" id="sheetBody"></div>
+  </div>
+</div>
+
+<script src="sound-engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
